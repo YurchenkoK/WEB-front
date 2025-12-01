@@ -8,13 +8,16 @@ import { AppStoreProvider } from "./AppStoreProvider";
 import { registerSW } from "virtual:pwa-register";
 import { CartProvider } from "./CartContext";
 
+// Определяем basename: "/" для Tauri, путь репозитория для веб-версии
+const basename = import.meta.env.BASE_URL || "/";
+
 const container = document.getElementById("root")!;
 const root = createRoot(container);
 root.render(
   <React.StrictMode>
     <AppStoreProvider>
       <CartProvider>
-        <BrowserRouter basename="/vasoactive_drug_speed_estimatior_frontend">
+        <BrowserRouter basename={basename}>
           <App />
         </BrowserRouter>
       </CartProvider>

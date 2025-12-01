@@ -1,35 +1,25 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-interface FilterState {
+interface DrugsFilterState {
   name: string;
-  concentration_min: number | null;
-  concentration_max: number | null;
 }
 
-const initialState: FilterState = {
+const initialState: DrugsFilterState = {
   name: "",
-  concentration_min: null,
-  concentration_max: null,
 };
 
 const filterSlice = createSlice({
   name: "drugsFilter",
   initialState,
   reducers: {
-    setName(state, action: PayloadAction<string>) {
+    setName: (state, action: PayloadAction<string>) => {
       state.name = action.payload;
     },
-    setConcentrationMin(state, action: PayloadAction<number | null>) {
-      state.concentration_min = action.payload;
-    },
-    setConcentrationMax(state, action: PayloadAction<number | null>) {
-      state.concentration_max = action.payload;
-    },
-    resetFilter() {
-      return initialState;
+    clearFilter: (state) => {
+      state.name = "";
     },
   },
 });
 
-export const { setName, setConcentrationMin, setConcentrationMax, resetFilter } = filterSlice.actions;
+export const { setName, clearFilter } = filterSlice.actions;
 export default filterSlice.reducer;

@@ -1,5 +1,7 @@
 import type { Drug } from "../DrugTypes";
 
+const BASE_URL = "/";
+
 export const mockDrugs: Drug[] = [
     {
         id: 1,
@@ -8,6 +10,7 @@ export const mockDrugs: Drug[] = [
         concentration: 1.0,
         volume: 1.0,
         is_active: true,
+        image_url: `${BASE_URL}EpiVial.jpg`,
     },
     {
         id: 2,
@@ -16,6 +19,7 @@ export const mockDrugs: Drug[] = [
         concentration: 2.0,
         volume: 4.0,
         is_active: true,
+        image_url: `${BASE_URL}phenylephirine.jpg`,
     },
     {
         id: 3,
@@ -24,6 +28,7 @@ export const mockDrugs: Drug[] = [
         concentration: 12.5,
         volume: 20.0,
         is_active: true,
+        image_url: `${BASE_URL}Milrinonepackvial.png`,
     },
     {
         id: 4,
@@ -32,6 +37,7 @@ export const mockDrugs: Drug[] = [
         concentration: 40.0,
         volume: 5.0,
         is_active: true,
+        image_url: `${BASE_URL}nitroglic.jpg`,
     },
     {
         id: 5,
@@ -40,5 +46,6 @@ export const mockDrugs: Drug[] = [
         concentration: 1.0,
         volume: 1.0,
         is_active: true,
+        image_url: `${BASE_URL}EpiVial.jpg`,
     },
 ];
