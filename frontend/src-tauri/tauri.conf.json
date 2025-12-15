@@ -5,9 +5,9 @@
   "identifier": "com.vasoactive.drugs",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:3000",
+    "devUrl": "http://localhost:3006",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build -- --base=/"
   },
   "app": {
     "withGlobalTauri": true,
@@ -21,14 +21,10 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' http://192.168.1.100:8005 http://localhost:8005 http://127.0.0.1:8005 http://localhost:9000 https://192.168.1.100:8443; img-src 'self' http://192.168.1.100:8005 http://localhost:8005 http://localhost:9000 http://127.0.0.1:9000 https://192.168.1.100:8443 data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
     }
   },
-  "plugins": {
-    "http": {
-      "enabled": true
-    }
-  },
+  "plugins": {},
   "bundle": {
     "active": true,
     "targets": "all",

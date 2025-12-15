@@ -8,8 +8,9 @@ import { AppStoreProvider } from "./AppStoreProvider";
 import { registerSW } from "virtual:pwa-register";
 import { CartProvider } from "./CartContext";
 
-// Определяем basename: "/" для Tauri, путь репозитория для веб-версии
-const basename = import.meta.env.BASE_URL || "/";
+// Detect if running in Tauri (desktop app)
+const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+const basename = isTauri ? '/' : '/vasoactive_drug_speed_estimatior_frontend';
 
 const container = document.getElementById("root")!;
 const root = createRoot(container);
@@ -25,6 +26,7 @@ root.render(
   </React.StrictMode>
 );
 
-if ("serviceWorker" in navigator) {
+if ("serviceWorker" in navigator && !isTauri) {
+  // Don't register service worker in Tauri (desktop app)
   registerSW();
 }

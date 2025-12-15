@@ -77,12 +77,12 @@ export default function DrugsPage() {
     const filter: any = {};
     if (searchName) filter.name = searchName;
     fetchDrugs(Object.keys(filter).length > 0 ? filter : undefined);
-    // refresh cart info when entering the page and log it
+    
     (async () => {
       try {
         await fetchOnPageEnter();
       } catch (e) {
-        // fail silently
+        
       }
     })();
   }, []);

@@ -3,6 +3,12 @@ dist
 dist-ssr
 *.local
 
+# Environment files
+# НЕ игнорируем .env.production - он нужен для GH Pages
+.env.local
+.env.development.local
+.env.production.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -35,12 +35,12 @@ export default function DrugDetailPage() {
     };
 
     loadDrug();
-    // fetch and log cart info when entering the product page
+    
     (async () => {
       try {
         await fetchOnPageEnter();
       } catch (e) {
-        // fail silently
+        
       }
     })();
   }, [id]);

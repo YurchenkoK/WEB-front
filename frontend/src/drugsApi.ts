@@ -1,34 +1,28 @@
 import type { Drug } from "./DrugTypes";
-import { mockDrugs } from "./mock/DrugMock";
 
-// Функция проверки Tauri - вызывается в runtime, не при загрузке модуля
-function isTauri(): boolean {
-  if (typeof window === 'undefined') return false;
-  // Проверяем по hostname - в Tauri это tauri.localhost
-  if (window.location.hostname === 'tauri.localhost') return true;
-  // Проверяем глобальные объекты Tauri
-  if ('__TAURI__' in window || '__TAURI_INTERNALS__' in window) return true;
-  return false;
-}
+const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
-// API URL - пустой для относительных путей в браузере
-const API_BASE_URL = '';
+// In dev mode, always use localhost:8005 for API
+const API_BASE_URL = 'http://localhost:8005';
 
-// Timeout для API запросов (3 секунды)
-const API_TIMEOUT = 3000;
+// Debug logging
+console.log('[drugsApi] Initialization:', {
+  isTauri,
+  API_BASE_URL,
+  hasTauriGlobal: typeof window !== 'undefined' && '__TAURI__' in window,
+  envBaseUrl: import.meta.env.VITE_API_BASE_URL,
+  windowLocation: typeof window !== 'undefined' ? window.location.href : 'undefined'
+});
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+function getHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'Accept': 'application/json',
+  };
   
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
+  if (API_BASE_URL && API_BASE_URL.includes('ngrok')) {
+    headers['ngrok-skip-browser-warning'] = '1';
   }
+  return headers;
 }
 
 export async function listDrugs(params?: { 
@@ -36,12 +30,6 @@ export async function listDrugs(params?: {
   concentration_min?: number;
   concentration_max?: number;
 }): Promise<Drug[]> {
-  // В Tauri (desktop) ВСЕГДА используем mock данные - бэкенд недоступен
-  if (isTauri()) {
-    console.log("[API] Tauri desktop mode - using mock data");
-    return filterMockDrugs(params);
-  }
-  
   try {
     let path = `${API_BASE_URL}/api/drugs/`;
     if (params) {
@@ -53,45 +41,28 @@ export async function listDrugs(params?: {
       if (queryString) path += `?${queryString}`;
     }
 
-    const res = await fetchWithTimeout(path, { headers: { Accept: "application/json" } });
+    console.log('[API] listDrugs - Fetching from:', path);
+    const res = await fetch(path, { headers: getHeaders() });
+    console.log('[API] listDrugs - Response status:', res.status, res.statusText);
+    
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    console.log('[API] listDrugs - Received data:', data);
+    return data;
   } catch (err) {
-    console.warn("[API] error fetching drugs, using mock data", err);
-    return filterMockDrugs(params);
+    console.error("[API] error fetching drugs", err);
+    return [];
   }
-}
-
-function filterMockDrugs(params?: { name?: string; concentration_min?: number; concentration_max?: number }): Drug[] {
-  return mockDrugs.filter((d) => {
-    let matches = true;
-    if (params?.name) {
-      matches = matches && d.name.toLowerCase().includes(params.name.toLowerCase());
-    }
-    if (params?.concentration_min !== undefined) {
-      matches = matches && d.concentration >= params.concentration_min;
-    }
-    if (params?.concentration_max !== undefined) {
-      matches = matches && d.concentration <= params.concentration_max;
-    }
-    return matches;
-  });
 }
 
 export async function getDrug(id: number): Promise<Drug | null> {
-  // В Tauri (desktop) ВСЕГДА используем mock данные
-  if (isTauri()) {
-    console.log("[API] Tauri desktop mode - using mock data for drug", id);
-    return mockDrugs.find(d => d.id === id) || null;
-  }
-  
   try {
-    const res = await fetchWithTimeout(`${API_BASE_URL}/api/drugs/${id}/`, { headers: { Accept: "application/json" } });
+    const res = await fetch(`${API_BASE_URL}/api/drugs/${id}/`, { headers: getHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn("[API] error fetching drug, using mock data", err);
-    return mockDrugs.find(d => d.id === id) || null;
+    console.warn("[API] error fetching drug", err);
+    return null;
   }
 }
 
@@ -102,8 +73,8 @@ export interface CartInfo {
 
 export async function getCartInfo(): Promise<CartInfo> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/orders/cart/`, { 
-      headers: { Accept: "application/json" },
+    const res = await fetch(`${API_BASE_URL}/api/estimation_requests/cart/`, { 
+      headers: getHeaders(),
       credentials: 'include'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
