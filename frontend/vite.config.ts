@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => {
       port: 3005,
       host: '0.0.0.0', // Слушаем на всех интерфейсах для доступа по IP
       strictPort: true,
+      // ВАЖНО: Прокси работает ТОЛЬКО в режиме разработки (npm run dev)
+      // В production (GH Pages) нужно указать VITE_API_BASE_URL в .env.production
       proxy: {
         "/api": {
           target: `http://${backendHost}:${backendPort}`,

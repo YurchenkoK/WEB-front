@@ -3,10 +3,24 @@ import type { Drug } from "./DrugTypes";
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
 // Для development используем прокси (пустая строка)
-// Для production (GH Pages) используем прямой адрес бэкенда
+// Для production (GH Pages) используем прямой адрес бэкенда из переменной окружения
 const API_BASE_URL = isTauri 
   ? 'http://192.168.1.240:8005'
   : (import.meta.env.VITE_API_BASE_URL || '');
+
+console.log('[API] Using API_BASE_URL:', API_BASE_URL);
+
+// Вспомогательная функция для создания заголовков с обходом ngrok interstitial
+function getHeaders(): HeadersInit {
+  const headers: HeadersInit = {
+    'Accept': 'application/json',
+  };
+  // Добавляем ngrok bypass header для production (когда используется ngrok URL)
+  if (API_BASE_URL && API_BASE_URL.includes('ngrok')) {
+    headers['ngrok-skip-browser-warning'] = '1';
+  }
+  return headers;
+}
 
 export async function listDrugs(params?: { 
   name?: string; 
@@ -24,7 +38,7 @@ export async function listDrugs(params?: {
       if (queryString) path += `?${queryString}`;
     }
 
-    const res = await fetch(path, { headers: { Accept: "application/json" } });
+    const res = await fetch(path, { headers: getHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -35,7 +49,7 @@ export async function listDrugs(params?: {
 
 export async function getDrug(id: number): Promise<Drug | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/drugs/${id}/`, { headers: { Accept: "application/json" } });
+    const res = await fetch(`${API_BASE_URL}/api/drugs/${id}/`, { headers: getHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
@@ -52,7 +66,7 @@ export interface CartInfo {
 export async function getCartInfo(): Promise<CartInfo> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/estimation_requests/cart/`, { 
-      headers: { Accept: "application/json" },
+      headers: getHeaders(),
       credentials: 'include'
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

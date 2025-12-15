@@ -150,7 +150,17 @@ SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS настройки для GitHub Pages и локальной разработки
+# ВАЖНО: с CORS_ALLOW_CREDENTIALS=True нельзя использовать wildcard '*'
+# Должны быть указаны конкретные домены в CORS_ALLOWED_ORIGINS
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    'https://yurchenkok.github.io',  # GitHub Pages
+    'http://localhost:3005',          # Локальная разработка (vite dev)
+    'http://127.0.0.1:3005',
+    'http://localhost:5173',          # vite default port
+    'http://127.0.0.1:5173',
+]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -162,4 +172,8 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    # Allow ngrok's browser warning bypass header so browser fetches with
+    # 'ngrok-skip-browser-warning: 1' will pass preflight during development.
+    # NOTE: only keep this in dev/testing. Remove for stricter production CORS.
+    'ngrok-skip-browser-warning',
 ]
