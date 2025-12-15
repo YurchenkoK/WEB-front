@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from stocks.models import Drug, Order, DrugInOrder
+from drugs_estimation.models import Drug, EstimationRequest, DrugInEstimation
 from collections import OrderedDict
 
 
@@ -15,36 +15,33 @@ class DrugSerializer(serializers.ModelSerializer):
         return obj.image_url if obj.image_url else None
 
 
-class DrugInOrderSerializer(serializers.ModelSerializer):
-    drug_detail = DrugSerializer(source='drug', read_only=True)
+class DrugInEstimationSerializer(serializers.ModelSerializer):
     drug = serializers.PrimaryKeyRelatedField(
         queryset=Drug.objects.filter(is_active=True)
     )
-    order = serializers.PrimaryKeyRelatedField(
-        queryset=Order.objects.all()
+    estimation_request = serializers.PrimaryKeyRelatedField(
+        queryset=EstimationRequest.objects.all()
     )
     
     class Meta:
-        model = DrugInOrder
+        model = DrugInEstimation
         fields = [
             'id',
-            'order',
+            'estimation_request',
             'drug',
-            'drug_detail',
             'ampoule_volume',
             'infusion_speed',
         ]
-        read_only_fields = ['id', 'drug_detail']
+        read_only_fields = ['id']
     
     def update(self, instance, validated_data):
         validated_data.pop('drug', None)
         return super().update(instance, validated_data)
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    # Removed nested 'items' from all Order responses per API requirement
+class EstimationRequestSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Order
+        model = EstimationRequest
         fields = [
             'id',
             'creator',
@@ -60,10 +57,13 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'creator', 'moderator', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
 
 
-class OrderListSerializer(serializers.ModelSerializer):
-    """Serializer for order list view — excludes item details to keep list compact."""
+class EstimationRequestListSerializer(serializers.ModelSerializer):
+    """Serializer for estimation request list view — excludes item details to keep list compact."""
+    async_results_count = serializers.SerializerMethodField()
+    items = serializers.SerializerMethodField()
+    
     class Meta:
-        model = Order
+        model = EstimationRequest
         fields = [
             'id',
             'creator',
@@ -74,9 +74,19 @@ class OrderListSerializer(serializers.ModelSerializer):
             'completion_datetime',
             'ampoules_count',
             'solvent_volume',
-            'patient_weight'
+            'patient_weight',
+            'async_results_count',
+            'items'
         ]
         read_only_fields = ['id', 'creator', 'moderator', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
+    
+    def get_async_results_count(self, obj):
+        """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed)"""
+        return obj.items.filter(infusion_speed__isnull=False).exclude(infusion_speed='').count()
+    
+    def get_items(self, obj):
+        """Возвращает массив ID препаратов в заявке"""
+        return list(obj.items.values_list('drug_id', flat=True))
 
 
 class UserSerializer(serializers.Serializer):

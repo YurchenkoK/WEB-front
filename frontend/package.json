@@ -13,7 +13,8 @@
     "deploy": "gh-pages -d dist",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "dev:ip": "vite --host 0.0.0.0"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.10.1",
@@ -44,5 +45,5 @@
     "vite-plugin-mkcert": "^1.17.9",
     "vite-plugin-pwa": "^1.1.0"
   },
-  "proxy": "http://127.0.0.1:8000"
+  "proxy": "http://127.0.0.1:8005"
 }

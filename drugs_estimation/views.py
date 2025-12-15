@@ -10,15 +10,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-from stocks.serializers import (
-    UserSerializer, DrugSerializer, OrderSerializer, DrugInOrderSerializer
+from drugs_estimation.serializers import (
+    UserSerializer, DrugSerializer, EstimationRequestSerializer, DrugInEstimationSerializer
 )
-from stocks.models import Drug, Order, DrugInOrder
-from stocks.redis_client import redis_user_client
+from drugs_estimation.models import Drug, EstimationRequest, DrugInEstimation
+from drugs_estimation.redis_client import redis_user_client
 from minio import Minio
 from django.conf import settings
 from django.core.files.uploadedfile import InMemoryUploadedFile
-from stocks.permissions import IsManager, IsAdmin, IsAuthenticated, get_redis_user
+from drugs_estimation.permissions import IsManager, IsAdmin, IsAuthenticated, get_redis_user
 
 
 def process_file_upload(file_object: InMemoryUploadedFile, client, image_name):
@@ -75,8 +75,8 @@ def delete_pic(drug):
         
         img_obj_name = drug.image_url.split('/')[-1]
         client.remove_object('images', img_obj_name)
-    except Exception as e:
-        print(f"Error deleting image: {e}")
+    except Exception:
+        pass
 
 
 class UserRegistration(APIView):
@@ -277,7 +277,7 @@ def user_logout(request):
     responses={200: openapi.Response('Cart info', schema=openapi.Schema(
         type=openapi.TYPE_OBJECT,
         properties={
-            'order_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+            'estimation_request_id': openapi.Schema(type=openapi.TYPE_INTEGER),
             'count': openapi.Schema(type=openapi.TYPE_INTEGER),
         }
     ))}
@@ -288,18 +288,18 @@ def user_logout(request):
 def cart_icon(request):
     redis_user = get_redis_user(request)
     if not redis_user:
-        return Response({"order_id": 0, "count": 0})
+        return Response({"estimation_request_id": 0, "count": 0})
     
     username = redis_user['username']
     try:
-        order = Order.objects.get(creator=username, status=Order.OrderStatus.DRAFT)
-        count = DrugInOrder.objects.filter(order=order).count()
-        return Response({"order_id": order.id, "count": count})
-    except Order.DoesNotExist:
-        return Response({"order_id": 0, "count": 0})
+        estimation_request = EstimationRequest.objects.get(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT)
+        count = DrugInEstimation.objects.filter(estimation_request=order).count()
+        return Response({"estimation_request_id": estimation_request.id, "count": count})
+    except EstimationRequest.DoesNotExist:
+        return Response({"estimation_request_id": 0, "count": 0})
 
 
-class OrderList(APIView):
+class EstimationRequestList(APIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
@@ -308,7 +308,7 @@ class OrderList(APIView):
             openapi.Parameter('date_to', openapi.IN_QUERY, type=openapi.TYPE_STRING, format='date'),
             openapi.Parameter('status', openapi.IN_QUERY, type=openapi.TYPE_STRING),
         ],
-        responses={200: 'A list of orders (compact representation without items)'}
+        responses={200: 'A list of estimation requests (compact representation without items)'}
     )
     def get(self, request, format=None):
         redis_user = get_redis_user(request)
@@ -320,75 +320,71 @@ class OrderList(APIView):
         username = redis_user['username']
         
         if is_staff or is_superuser:
-            orders = Order.objects.exclude(
-                status__in=[Order.OrderStatus.DELETED, Order.OrderStatus.DRAFT]
-            )
+            estimation_requests = EstimationRequest.objects.exclude(status=EstimationRequest.EstimationRequestStatus.DELETED)
         else:
-            orders = Order.objects.filter(creator=username).exclude(
-                status__in=[Order.OrderStatus.DELETED, Order.OrderStatus.DRAFT]
-            )
+            estimation_requests = EstimationRequest.objects.filter(creator=username).exclude(status=EstimationRequest.EstimationRequestStatus.DELETED)
         
         date_from = request.query_params.get('date_from', None)
         date_to = request.query_params.get('date_to', None)
         if date_from:
-            orders = orders.filter(formation_datetime__gte=date_from)
+            estimation_requests = estimation_requests.filter(formation_datetime__gte=date_from)
         if date_to:
-            orders = orders.filter(formation_datetime__lte=date_to)
+            estimation_requests = estimation_requests.filter(formation_datetime__lte=date_to)
         
-        order_status = request.query_params.get('status', None)
-        if order_status:
-            orders = orders.filter(status=order_status)
+        estimation_request_status = request.query_params.get('status', None)
+        if estimation_request_status:
+            estimation_requests = estimation_requests.filter(status=estimation_request_status)
         
-        orders = orders.order_by('status', '-creation_datetime')
-        from stocks.serializers import OrderListSerializer
-        serializer = OrderListSerializer(orders, many=True)
+        estimation_requests = estimation_requests.order_by('status', '-creation_datetime')
+        from drugs_estimation.serializers import EstimationRequestListSerializer
+        serializer = EstimationRequestListSerializer(estimation_requests, many=True)
         return Response(serializer.data)
 
 
-class OrderDetail(APIView):
+class EstimationRequestDetail(APIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
         operation_description="Получить детальную информацию о заявке. Доступно создателю и модераторам.",
-        responses={200: OrderSerializer, 403: 'Forbidden', 404: 'Not Found'}
+        responses={200: EstimationRequestSerializer, 403: 'Forbidden', 404: 'Not Found'}
     )
     def get(self, request, pk, format=None):
         redis_user = get_redis_user(request)
         if not redis_user:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        order = get_object_or_404(Order, pk=pk)
+        estimation_request = get_object_or_404(EstimationRequest, pk=pk)
         username = redis_user['username']
         is_staff = redis_user.get('is_staff', False)
         is_superuser = redis_user.get('is_superuser', False)
         
-        if order.creator != request.user and not (is_staff or is_superuser):
+        if estimation_request.creator != username and not (is_staff or is_superuser):
             return Response({"error": "Нет доступа к этой заявке"}, 
                           status=status.HTTP_403_FORBIDDEN)
-        if order.status == Order.OrderStatus.DELETED:
+        if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
             return Response({"error": "Заявка удалена"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = OrderSerializer(order)
+        serializer = EstimationRequestSerializer(estimation_request)
         return Response(serializer.data)
     
     @swagger_auto_schema(
-        request_body=OrderSerializer,
-        responses={200: OrderSerializer, 400: 'Bad Request', 403: 'Forbidden'}
+        request_body=EstimationRequestSerializer,
+        responses={200: EstimationRequestSerializer, 400: 'Bad Request', 403: 'Forbidden'}
     )
     def put(self, request, pk, format=None):
         redis_user = get_redis_user(request)
         if not redis_user:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        order = get_object_or_404(Order, pk=pk)
+        estimation_request = get_object_or_404(EstimationRequest, pk=pk)
         username = redis_user['username']
         
-        if order.creator != request.user:
+        if estimation_request.creator != username:
             return Response({"error": "Можно редактировать только свои заявки"}, 
                           status=status.HTTP_403_FORBIDDEN)
-        if order.status != Order.OrderStatus.DRAFT:
+        if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
             return Response({"error": "Можно редактировать только черновики"}, 
                           status=status.HTTP_403_FORBIDDEN)
-        serializer = OrderSerializer(order, data=request.data, partial=True)
+        serializer = EstimationRequestSerializer(estimation_request, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -399,97 +395,138 @@ class OrderDetail(APIView):
         if not redis_user:
             return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
         
-        order = get_object_or_404(Order, pk=pk)
+        estimation_request = get_object_or_404(EstimationRequest, pk=pk)
         username = redis_user['username']
         
-        if order.creator != request.user:
+        if estimation_request.creator != username:
             return Response({"error": "Можно удалять только свои заявки"}, 
                           status=status.HTTP_403_FORBIDDEN)
-        order.status = Order.OrderStatus.DELETED
-        order.save()
+        estimation_request.status = EstimationRequest.EstimationRequestStatus.DELETED
+        estimation_request.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @swagger_auto_schema(
     method='put',
-    responses={200: OrderSerializer, 400: 'Bad Request', 403: 'Forbidden'}
+    responses={200: EstimationRequestSerializer, 400: 'Bad Request', 403: 'Forbidden'}
 )
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-def form_order(request, pk):
+def form_estimation_request(request, pk):
     redis_user = get_redis_user(request)
     if not redis_user:
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    order = get_object_or_404(Order, pk=pk)
+    estimation_request = get_object_or_404(EstimationRequest, pk=pk)
     username = redis_user['username']
     
-    if order.creator != request.user:
+    if estimation_request.creator != username:
         return Response({"error": "Можно формировать только свои заявки"}, 
                        status=status.HTTP_403_FORBIDDEN)
-    if order.status != Order.OrderStatus.DRAFT:
+    if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
         return Response({"error": "Можно формировать только черновик"}, 
                        status=status.HTTP_403_FORBIDDEN)
-    if not order.ampoules_count or not order.solvent_volume or not order.patient_weight:
+    if not estimation_request.ampoules_count or not estimation_request.solvent_volume or not estimation_request.patient_weight:
         return Response({"error": "Заполните все обязательные поля"}, 
                        status=status.HTTP_400_BAD_REQUEST)
-    if not DrugInOrder.objects.filter(order=order).exists():
+    if not DrugInEstimation.objects.filter(estimation_request=order).exists():
         return Response({"error": "В заявке должен быть хотя бы один препарат"}, 
                        status=status.HTTP_400_BAD_REQUEST)
-    order.status = Order.OrderStatus.FORMED
-    order.formation_datetime = timezone.now()
-    order.save()
-    serializer = OrderSerializer(order)
+    
+    estimation_request.status = EstimationRequest.EstimationRequestStatus.FORMED
+    estimation_request.formation_datetime = timezone.now()
+    estimation_request.save()
+    
+    serializer = EstimationRequestSerializer(estimation_request)
     return Response(serializer.data)
 
 
 @swagger_auto_schema(
     method='put',
-    responses={200: OrderSerializer, 403: 'Forbidden'}
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['action'],
+        properties={
+            'action': openapi.Schema(
+                type=openapi.TYPE_STRING,
+                enum=['complete', 'reject'],
+                description='Действие: complete - завершить, reject - отклонить'
+            ),
+        },
+    ),
+    responses={200: EstimationRequestSerializer, 400: 'Bad Request', 403: 'Forbidden'}
 )
 @api_view(['PUT'])
 @permission_classes([IsManager])
-def complete_order(request, pk):
+def complete_estimation_request(request, pk):
+    """
+    PUT /api/estimation_requests/{pk}/complete/
+    Завершить или отклонить заявку модератором.
+    
+    Body: {"action": "complete"} или {"action": "reject"}
+    """
+    import requests
+    from django.conf import settings
+    
     redis_user = get_redis_user(request)
     if not redis_user:
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    order = get_object_or_404(Order, pk=pk)
-    if order.status != Order.OrderStatus.FORMED:
-        return Response({"error": "Можно завершать только сформированную заявку"}, 
-                       status=status.HTTP_403_FORBIDDEN)
-    order.status = Order.OrderStatus.COMPLETED
-    order.completion_datetime = timezone.now()
-    # store moderator username (request.user may be a dict from Redis auth)
-    order.moderator = redis_user.get('username') if isinstance(redis_user, dict) else getattr(request.user, 'username', None)
-    order.save()
-    for drug_in_order in DrugInOrder.objects.filter(order=order):
-        drug_in_order.calculate_infusion_speed()
-        drug_in_order.save()
-    serializer = OrderSerializer(order)
-    return Response(serializer.data)
-
-
-@swagger_auto_schema(
-    method='put',
-    responses={200: OrderSerializer, 403: 'Forbidden'}
-)
-@api_view(['PUT'])
-@permission_classes([IsManager])
-def reject_order(request, pk):
-    redis_user = get_redis_user(request)
-    if not redis_user:
-        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    action = request.data.get('action')
+    if action not in ['complete', 'reject']:
+        return Response(
+            {"error": "action должен быть 'complete' или 'reject'"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
     
-    order = get_object_or_404(Order, pk=pk)
-    if order.status != Order.OrderStatus.FORMED:
-        return Response({"error": "Можно отклонять только сформированную заявку"}, 
-                       status=status.HTTP_403_FORBIDDEN)
-    order.status = Order.OrderStatus.REJECTED
-    order.completion_datetime = timezone.now()
-    order.moderator = redis_user.get('username') if isinstance(redis_user, dict) else getattr(request.user, 'username', None)
-    order.save()
-    serializer = OrderSerializer(order)
+    estimation_request = get_object_or_404(EstimationRequest, pk=pk)
+    if estimation_request.status != EstimationRequest.EstimationRequestStatus.FORMED:
+        return Response(
+            {"error": "Можно завершать/отклонять только сформированную заявку"}, 
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Устанавливаем модератора
+    estimation_request.moderator = redis_user.get('username') if isinstance(redis_user, dict) else getattr(request.user, 'username', None)
+    estimation_request.completion_datetime = timezone.now()
+    
+    if action == 'complete':
+        # Утверждаем заявку
+        estimation_request.status = EstimationRequest.EstimationRequestStatus.COMPLETED
+        estimation_request.save()
+        
+        # После утверждения Django-сервис направляет POST запрос /estimation_request_calculate/:id в асинхронный Go-сервис
+        drugs_in_estimation = DrugInEstimation.objects.filter(estimation_request=estimation_request)
+        drugs_data = []
+        for drug_in_estimation in drugs_in_estimation:
+            drugs_data.append({
+                "druginestimation_id": drug_in_estimation.id,
+                "drug_concentration": float(drug_in_estimation.drug.concentration),
+                "ampoule_volume": float(drug_in_estimation.ampoule_volume or drug_in_estimation.drug.volume),
+                "ampoules_count": estimation_request.ampoules_count,
+                "solvent_volume": float(estimation_request.solvent_volume),
+                "patient_weight": float(estimation_request.patient_weight)
+            })
+        
+        try:
+            response = requests.post(
+                f"{settings.ASYNC_SERVICE_URL}/estimation_request_calculate/{estimation_request.id}",
+                json={
+                    "drugs": drugs_data
+                },
+                timeout=5
+            )
+            if response.status_code != 202:
+                pass
+        except requests.exceptions.RequestException:
+            pass
+    
+    elif action == 'reject':
+        # Отклоняем заявку
+        estimation_request.status = EstimationRequest.EstimationRequestStatus.REJECTED
+        estimation_request.save()
+    
+    serializer = EstimationRequestSerializer(estimation_request)
     return Response(serializer.data)
 
 
@@ -513,22 +550,24 @@ def reject_order(request, pk):
 )
 @api_view(['DELETE', 'PUT'])
 @permission_classes([IsAuthenticated])
-def drug_in_order_actions(request, order_pk, drug_pk):
+def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
     redis_user = get_redis_user(request)
     if not redis_user:
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     
-    order = get_object_or_404(Order, pk=order_pk)
+    estimation_request = get_object_or_404(EstimationRequest, pk=estimation_request_pk)
     username = redis_user['username']
+    is_superuser = redis_user.get('is_superuser') in ['1', 'True', True]
     
-    if order.creator != request.user:
+    # Суперпользователь может редактировать любые заявки
+    if not is_superuser and estimation_request.creator != username:
         return Response({"error": "Можно изменять только свои заявки"}, 
                        status=status.HTTP_403_FORBIDDEN)
-    if order.status != Order.OrderStatus.DRAFT:
+    if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
         return Response({"error": "Можно изменять препараты только в черновике"}, 
                        status=status.HTTP_403_FORBIDDEN)
     
-    drug_in_order = get_object_or_404(DrugInOrder, order=order, drug_id=drug_pk)
+    drug_in_order = get_object_or_404(DrugInEstimation, order=estimation_request, drug_id=drug_pk)
     
     if request.method == 'DELETE':
         drug_in_order.delete()
@@ -545,10 +584,9 @@ def drug_in_order_actions(request, order_pk, drug_pk):
                 return Response({"error": "Неверный формат объёма ампулы"}, 
                                status=status.HTTP_400_BAD_REQUEST)
         
-        drug_in_order.calculate_infusion_speed()
         drug_in_order.save()
         
-        serializer = DrugInOrderSerializer(drug_in_order)
+        serializer = DrugInEstimationSerializer(drug_in_order)
         return Response(serializer.data)
 
 
@@ -654,22 +692,22 @@ def add_drug_image(request, pk):
 )
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def add_drug_to_order(request, pk):
+def add_drug_to_estimation_request(request, pk):
     redis_user = get_redis_user(request)
     if not redis_user:
         return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     
     drug = get_object_or_404(Drug, pk=pk, is_active=True)
     username = redis_user['username']
-    order, created = Order.objects.get_or_create(
+    estimation_request, created = EstimationRequest.objects.get_or_create(
         creator=username,
-        status=Order.OrderStatus.DRAFT,
+        status=EstimationRequest.EstimationRequestStatus.DRAFT,
         defaults={'creation_datetime': timezone.now()}
     )
-    drug_in_order, created = DrugInOrder.objects.get_or_create(order=order, drug=drug)
+    drug_in_order, created = DrugInEstimation.objects.get_or_create(estimation_request=estimation_request, drug=drug)
     if not created:
         return Response({"message": "Препарат уже есть в заявке"}, status=status.HTTP_200_OK)
-    return Response({"message": "Препарат добавлен в заявку", "order_id": order.id}, 
+    return Response({"message": "Препарат добавлен в заявку", "estimation_request_id": estimation_request.id}, 
                    status=status.HTTP_201_CREATED)
 
 
@@ -693,7 +731,7 @@ def search(request):
         })
     
     estimation_count = 0
-    order_id = None
+    estimation_request_id = None
     try:
         # Get Redis user
         redis_user = get_redis_user(request)
@@ -702,14 +740,14 @@ def search(request):
         else:
             username = 'AnonymousUser'
         
-        draft_order = Order.objects.filter(creator=username, status=Order.OrderStatus.DRAFT).first()
+        draft_order = EstimationRequest.objects.filter(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT).first()
         if draft_order:
-            estimation_count = DrugInOrder.objects.filter(order=draft_order).count()
-            order_id = draft_order.id
+            estimation_count = DrugInEstimation.objects.filter(estimation_request=draft_order).count()
+            estimation_request_id = draft_order.id
     except:
         pass
     
-    data = {'drugs': drugs_data, 'estimation_count': estimation_count, 'order_id': order_id}
+    data = {'drugs': drugs_data, 'estimation_count': estimation_count, 'estimation_request_id': estimation_request_id}
     return render(request, 'main.html', {'data': data, 'search_query': search_query})
 
 
@@ -726,7 +764,7 @@ def vasoactive_drug_detail(request, drug_id):
     }
     
     estimation_count = 0
-    order_id = None
+    estimation_request_id = None
     try:
         redis_user = get_redis_user(request)
         if redis_user:
@@ -734,17 +772,17 @@ def vasoactive_drug_detail(request, drug_id):
         else:
             username = 'AnonymousUser'
         
-        draft_order = Order.objects.filter(creator=username, status=Order.OrderStatus.DRAFT).first()
+        draft_order = EstimationRequest.objects.filter(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT).first()
         if draft_order:
-            estimation_count = DrugInOrder.objects.filter(order=draft_order).count()
-            order_id = draft_order.id
+            estimation_count = DrugInEstimation.objects.filter(estimation_request=draft_order).count()
+            estimation_request_id = draft_order.id
     except:
         pass
     
-    return render(request, 'vasoactive_drug.html', {'drug': drug_data, 'estimation_count': estimation_count, 'order_id': order_id})
+    return render(request, 'vasoactive_drug.html', {'drug': drug_data, 'estimation_count': estimation_count, 'estimation_request_id': estimation_request_id})
 
 
-def add_to_order_html(request, drug_id):
+def add_to_estimation_request_html(request, drug_id):
     if request.method != 'POST':
         return redirect('search')
     
@@ -756,12 +794,12 @@ def add_to_order_html(request, drug_id):
     else:
         username = redis_user['username']
     
-    draft_order, created = Order.objects.get_or_create(
+    draft_order, created = EstimationRequest.objects.get_or_create(
         creator=username,
-        status=Order.OrderStatus.DRAFT
+        status=EstimationRequest.EstimationRequestStatus.DRAFT
     )
     
-    drug_in_order, created = DrugInOrder.objects.get_or_create(
+    drug_in_order, created = DrugInEstimation.objects.get_or_create(
         order=draft_order,
         drug=drug
     )
@@ -769,29 +807,29 @@ def add_to_order_html(request, drug_id):
     return redirect('vasoactive_drug_detail', drug_id=drug_id)
 
 
-def estimation_infusion_speed(request, order_id=None):
+def estimation_infusion_speed(request, estimation_request_id=None):
     redis_user = get_redis_user(request)
     if not redis_user:
         username = 'AnonymousUser'
     else:
         username = redis_user['username']
     
-    if order_id:
-        order = get_object_or_404(Order, id=order_id, creator=username)
-        if order.status == Order.OrderStatus.DELETED:
+    if estimation_request_id:
+        estimation_request = get_object_or_404(EstimationRequest, id=estimation_request_id, creator=username)
+        if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
             raise Http404("Заявка удалена")
         draft_order = order
     else:
-        draft_order = Order.objects.filter(
+        draft_order = EstimationRequest.objects.filter(
             creator=username, 
-            status__in=[Order.OrderStatus.DRAFT, Order.OrderStatus.FORMED]
+            status__in=[EstimationRequest.EstimationRequestStatus.DRAFT, EstimationRequest.EstimationRequestStatus.FORMED]
         ).first()
     
     if not draft_order:
         data = {'estimation_items': [], 'estimation_params': {'ampoules': 0, 'solvent_volume': 0, 'patient_weight': 0}}
         return render(request, 'estimation_infusion_speed.html', {'data': data})
     
-    drugs_in_order = DrugInOrder.objects.filter(order=draft_order).select_related('drug')
+    drugs_in_order = DrugInEstimation.objects.filter(estimation_request=draft_order).select_related('drug')
     estimation_items = []
     has_infusion_speeds = False
     
@@ -822,64 +860,144 @@ def estimation_infusion_speed(request, order_id=None):
     data = {
         'estimation_items': estimation_items, 
         'estimation_params': estimation_params, 
-        'order_id': draft_order.id,
+        'estimation_request_id': draft_order.id,
         'order_status': draft_order.status,
         'has_infusion_speeds': has_infusion_speeds
     }
     return render(request, 'estimation_infusion_speed.html', {'data': data})
 
 
-def update_order_params(request, order_id):
+def update_estimation_request_params(request, estimation_request_id):
     if request.method != 'POST':
         return redirect('estimation_infusion_speed')
     
-    order = get_object_or_404(Order, id=order_id, status=Order.OrderStatus.DRAFT)
+    estimation_request = get_object_or_404(EstimationRequest, id=estimation_request_id, status=EstimationRequest.EstimationRequestStatus.DRAFT)
     
     ampoules_count = request.POST.get('ampoules_count', '').strip()
     solvent_volume = request.POST.get('solvent_volume', '').strip()
     patient_weight = request.POST.get('patient_weight', '').strip()
     
     if not ampoules_count or not solvent_volume or not patient_weight:
-        return redirect('estimation_infusion_speed_with_id', order_id=order_id)
+        return redirect('estimation_infusion_speed_with_id', estimation_request_id=estimation_request_id)
     
     try:
-        order.ampoules_count = int(ampoules_count)
-        order.solvent_volume = float(solvent_volume)
-        order.patient_weight = float(patient_weight)
+        estimation_request.ampoules_count = int(ampoules_count)
+        estimation_request.solvent_volume = float(solvent_volume)
+        estimation_request.patient_weight = float(patient_weight)
     except (ValueError, TypeError):
-        return redirect('estimation_infusion_speed_with_id', order_id=order_id)
+        return redirect('estimation_infusion_speed_with_id', estimation_request_id=estimation_request_id)
     
-    order.status = Order.OrderStatus.FORMED
-    order.formation_datetime = timezone.now()
-    order.save()
+    estimation_request.status = EstimationRequest.EstimationRequestStatus.FORMED
+    estimation_request.formation_datetime = timezone.now()
+    estimation_request.save()
     
-    drugs_in_order = DrugInOrder.objects.filter(order=order)
+    drugs_in_order = DrugInEstimation.objects.filter(estimation_request=order)
     for drug_in_order in drugs_in_order:
         drug_in_order.calculate_infusion_speed()
         drug_in_order.save()
     
-    return redirect('estimation_infusion_speed_with_id', order_id=order_id)
+    return redirect('estimation_infusion_speed_with_id', estimation_request_id=estimation_request_id)
 
 
-def delete_order_html(request, order_id):
+def delete_estimation_request_html(request, estimation_request_id):
     if request.method != 'POST':
         return redirect('estimation_infusion_speed')
     
     with connection.cursor() as cursor:
-        cursor.execute('UPDATE "ssr_inDb_order" SET status = %s WHERE id = %s', [Order.OrderStatus.DELETED, order_id])
+        cursor.execute('UPDATE "estimation_request" SET status = %s WHERE id = %s', [EstimationRequest.EstimationRequestStatus.DELETED, estimation_request_id])
     
     return redirect('search')
 
 
-def complete_order_html(request, order_id):
+def complete_estimation_request_html(request, estimation_request_id):
     if request.method != 'POST':
         return redirect('estimation_infusion_speed')
     
-    order = get_object_or_404(Order, id=order_id, status__in=[Order.OrderStatus.DRAFT, Order.OrderStatus.FORMED])
+    estimation_request = get_object_or_404(EstimationRequest, id=estimation_request_id, status__in=[EstimationRequest.EstimationRequestStatus.DRAFT, EstimationRequest.EstimationRequestStatus.FORMED])
     
-    order.status = Order.OrderStatus.COMPLETED
-    order.completion_datetime = timezone.now()
-    order.save()
+    estimation_request.status = EstimationRequest.EstimationRequestStatus.COMPLETED
+    estimation_request.completion_datetime = timezone.now()
+    estimation_request.save()
     
     return redirect('search')
+
+
+@swagger_auto_schema(
+    method='post',
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        required=['secret_key', 'estimation_request_id', 'results'],
+        properties={
+            'secret_key': openapi.Schema(type=openapi.TYPE_STRING, description='Secret key for authentication'),
+        'estimation_request_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='Estimation request ID'),
+            'results': openapi.Schema(
+                type=openapi.TYPE_ARRAY,
+                items=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'druginestimation_id': openapi.Schema(type=openapi.TYPE_INTEGER),
+                        'infusion_speed': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT),
+                    }
+                ),
+                description='Array of calculation results'
+            ),
+        },
+    ),
+    responses={
+        200: 'Results updated successfully',
+        401: 'Invalid secret key',
+        404: 'Order not found'
+    }
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def update_async_results(request, pk):
+    """Принять результат от асинхронного сервиса"""
+    from django.conf import settings
+    
+    secret_key = request.data.get('secret_key')
+    results = request.data.get('results', [])
+    
+    # Проверка секретного ключа
+    if secret_key != settings.ASYNC_SERVICE_TOKEN:
+        return Response(
+            {"error": "Неверный секретный ключ"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    
+    # Проверка наличия заявки
+    try:
+        estimation_request = EstimationRequest.objects.get(pk=pk)
+    except EstimationRequest.DoesNotExist:
+        return Response(
+            {"error": f"Заявка с ID {pk} не найдена"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Обновление результатов для каждого препарата в заявке
+    updated_count = 0
+    for result_item in results:
+        # accept both new and old keys for backwards compatibility
+        druginestimation_id = result_item.get('druginestimation_id') or result_item.get('druginorder_id')
+        infusion_speed = result_item.get('infusion_speed')
+
+        if druginestimation_id and infusion_speed is not None:
+            try:
+                drug_in_estimation = DrugInEstimation.objects.get(
+                    pk=druginestimation_id,
+                    estimation_request=estimation_request
+                )
+                drug_in_estimation.infusion_speed = infusion_speed
+                drug_in_estimation.save()
+                updated_count += 1
+            except DrugInEstimation.DoesNotExist:
+                continue
+    
+    return Response({
+        "status": "success",
+        "message": "Результаты успешно обновлены",
+        "estimation_request_id": pk,
+        "updated_count": updated_count
+    })
 

@@ -10,7 +10,7 @@ class Drug(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Активен")
     
     class Meta:
-        db_table = 'ssr_inDb_drug'
+        db_table = 'drugs'
         verbose_name = "Препарат"
         verbose_name_plural = "Препараты"
         ordering = ['id']
@@ -19,8 +19,8 @@ class Drug(models.Model):
         return self.name
 
 
-class Order(models.Model):
-    class OrderStatus(models.TextChoices):
+class EstimationRequest(models.Model):
+    class EstimationRequestStatus(models.TextChoices):
         DRAFT = "DRAFT", "Черновик"
         DELETED = "DELETED", "Удалён"
         FORMED = "FORMED", "Сформирован"
@@ -39,8 +39,8 @@ class Order(models.Model):
     )
     status = models.CharField(
         max_length=10, 
-        choices=OrderStatus.choices, 
-        default=OrderStatus.DRAFT, 
+        choices=EstimationRequestStatus.choices, 
+        default=EstimationRequestStatus.DRAFT, 
         verbose_name="Статус"
     )
     creation_datetime = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
@@ -61,10 +61,10 @@ class Order(models.Model):
         null=True, 
         verbose_name="Масса пациента (кг)"
     )
-    drugs = models.ManyToManyField(Drug, through='DrugInOrder', verbose_name="Препараты")
+    drugs = models.ManyToManyField(Drug, through='DrugInEstimation', verbose_name="Препараты")
     
     class Meta:
-        db_table = 'ssr_inDb_order'
+        db_table = 'estimation_request'
         verbose_name = "Заявка"
         verbose_name_plural = "Заявки"
         ordering = ['-creation_datetime']
@@ -73,9 +73,9 @@ class Order(models.Model):
         return f"Заявка № {self.id} ({self.get_status_display()})"
 
 
-class DrugInOrder(models.Model):
-    order = models.ForeignKey(
-        Order, 
+class DrugInEstimation(models.Model):
+    estimation_request = models.ForeignKey(
+        EstimationRequest, 
         on_delete=models.PROTECT, 
         related_name='items',
         verbose_name="Заявка"
@@ -83,7 +83,7 @@ class DrugInOrder(models.Model):
     drug = models.ForeignKey(
         Drug, 
         on_delete=models.PROTECT, 
-        related_name='orders',
+        related_name='estimation_requests',
         verbose_name="Препарат"
     )
     ampoule_volume = models.DecimalField(
@@ -102,13 +102,13 @@ class DrugInOrder(models.Model):
     )
     
     class Meta:
-        db_table = 'ssr_inDb_druginorder'
+        db_table = 'drug_in_estimation'
         verbose_name = "Препарат в заявке"
         verbose_name_plural = "Препараты в заявках"
-        unique_together = ('order', 'drug')
+        unique_together = ('estimation_request', 'drug')
     
     def __str__(self):
-        return f"{self.order.id}-{self.drug.name}"
+        return f"{self.estimation_request.id}-{self.drug.name}"
     
     def save(self, *args, **kwargs):
         if not self.ampoule_volume:
@@ -116,12 +116,15 @@ class DrugInOrder(models.Model):
         super().save(*args, **kwargs)
     
     def calculate_infusion_speed(self):
-        if self.order and self.order.solvent_volume and self.order.patient_weight and self.order.ampoules_count:
+        from decimal import Decimal
+        
+        if self.estimation_request and self.estimation_request.solvent_volume and self.estimation_request.patient_weight and self.estimation_request.ampoules_count:
             volume = self.ampoule_volume if self.ampoule_volume else self.drug.volume
-            total_drug_mg = self.drug.concentration * self.order.ampoules_count * volume
-            infusion_speed_ml_hour = self.order.solvent_volume
-            drug_mg_per_hour = (infusion_speed_ml_hour / self.order.solvent_volume) * total_drug_mg
-            infusion_speed = drug_mg_per_hour / self.order.patient_weight
+            volume = Decimal(str(volume)) if not isinstance(volume, Decimal) else volume
+            total_drug_mg = self.drug.concentration * Decimal(self.estimation_request.ampoules_count) * volume
+            infusion_speed_ml_hour = self.estimation_request.solvent_volume
+            drug_mg_per_hour = (infusion_speed_ml_hour / self.estimation_request.solvent_volume) * total_drug_mg
+            infusion_speed = drug_mg_per_hour / self.estimation_request.patient_weight
             
             self.infusion_speed = round(infusion_speed, 2)
             return self.infusion_speed

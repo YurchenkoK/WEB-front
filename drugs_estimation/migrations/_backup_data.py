@@ -171,9 +171,9 @@ DRUGS_DATA = [
 
 def restore_from_backup(apps, schema_editor):
     """Восстановление ВС ЕХ данных из 28.11.backup1.sql"""
-    Drug = apps.get_model('stocks', 'Drug')
-    Order = apps.get_model('stocks', 'Order')
-    DrugInOrder = apps.get_model('stocks', 'DrugInOrder')
+    Drug = apps.get_model('drugs_estimation', 'Drug')
+    Order = apps.get_model('drugs_estimation', 'Order')
+    DrugInOrder = apps.get_model('drugs_estimation', 'DrugInOrder')
     
     # Препараты
     Drug.objects.bulk_create([Drug(**d) for d in DRUGS_DATA])

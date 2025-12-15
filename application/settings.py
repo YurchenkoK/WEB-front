@@ -1,3 +1,5 @@
+import os
+import socket
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,7 +20,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'corsheaders',
     
-    'stocks',
+    'drugs_estimation',
 ]
 
 MIDDLEWARE = [
@@ -28,7 +30,7 @@ MIDDLEWARE = [
     'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'stocks.middleware.RedisUserMiddleware',
+    'drugs_estimation.middleware.RedisUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -53,14 +55,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'application.wsgi.application'
 
+# Determine DB host: priority
+# 1) DJANGO_DB_HOST env var
+# 2) host.docker.internal if it resolves (Docker Desktop case)
+# 3) 'db' (typical docker-compose service name)
+DB_HOST = os.environ.get('DJANGO_DB_HOST')
+if not DB_HOST:
+    try:
+        # quick DNS check - does host.docker.internal resolve here?
+        socket.getaddrinfo('host.docker.internal', None)
+        DB_HOST = 'host.docker.internal'
+    except Exception:
+        DB_HOST = os.environ.get('POSTGRES_HOST', 'db')
+
+DB_PORT = int(os.environ.get('DJANGO_DB_PORT', os.environ.get('POSTGRES_PORT', 5432)))
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'RIP',
-        'USER': 'root',
-        'PASSWORD': 'root',
-        'HOST': 'db',
-        'PORT': 5432,
+        'NAME': os.environ.get('DJANGO_DB_NAME', 'RIP'),
+        'USER': os.environ.get('DJANGO_DB_USER', 'root'),
+        'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'root'),
+        'HOST': DB_HOST,
+        'PORT': DB_PORT,
     }
 }
 
@@ -71,7 +88,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [
-    BASE_DIR / 'stocks' / 'static',
+    BASE_DIR / 'drugs_estimation' / 'static',
 ]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -84,8 +101,8 @@ MINIO_USE_SSL = False
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'stocks.authentication.RedisTokenAuthentication',  # For API clients (Authorization: Token xxx)
-        'stocks.authentication.RedisCookieAuthentication',  # For browser clients (Cookie)
+        'drugs_estimation.authentication.RedisTokenAuthentication',  # For API clients (Authorization: Token xxx)
+        'drugs_estimation.authentication.RedisCookieAuthentication',  # For browser clients (Cookie)
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
@@ -113,6 +130,10 @@ SWAGGER_SETTINGS = {
 REDIS_HOST = 'redis'
 REDIS_PORT = 6379
 REDIS_PASSWORD = 'password'
+
+# Токен для асинхронного сервиса
+ASYNC_SERVICE_TOKEN = 'a1b2c3d4e5f6g7h8'
+ASYNC_SERVICE_URL = 'http://localhost:8081'
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "default"
