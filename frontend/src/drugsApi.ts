@@ -2,20 +2,17 @@ import type { Drug } from "./DrugTypes";
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
-// Для development используем прокси (пустая строка)
-// Для production (GH Pages) используем прямой адрес бэкенда из переменной окружения
+
+
 const API_BASE_URL = isTauri 
-  ? 'http://192.168.1.240:8005'
+  ? 'http://localhost:8005'
   : (import.meta.env.VITE_API_BASE_URL || '');
 
-console.log('[API] Using API_BASE_URL:', API_BASE_URL);
-
-// Вспомогательная функция для создания заголовков с обходом ngrok interstitial
 function getHeaders(): HeadersInit {
   const headers: HeadersInit = {
     'Accept': 'application/json',
   };
-  // Добавляем ngrok bypass header для production (когда используется ngrok URL)
+  
   if (API_BASE_URL && API_BASE_URL.includes('ngrok')) {
     headers['ngrok-skip-browser-warning'] = '1';
   }

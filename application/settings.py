@@ -55,14 +55,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'application.wsgi.application'
 
-# Determine DB host: priority
-# 1) DJANGO_DB_HOST env var
-# 2) host.docker.internal if it resolves (Docker Desktop case)
-# 3) 'db' (typical docker-compose service name)
 DB_HOST = os.environ.get('DJANGO_DB_HOST')
 if not DB_HOST:
     try:
-        # quick DNS check - does host.docker.internal resolve here?
         socket.getaddrinfo('host.docker.internal', None)
         DB_HOST = 'host.docker.internal'
     except Exception:
@@ -101,8 +96,8 @@ MINIO_USE_SSL = False
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'drugs_estimation.authentication.RedisTokenAuthentication',  # For API clients (Authorization: Token xxx)
-        'drugs_estimation.authentication.RedisCookieAuthentication',  # For browser clients (Cookie)
+        'drugs_estimation.authentication.RedisTokenAuthentication',
+        'drugs_estimation.authentication.RedisCookieAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
@@ -131,7 +126,6 @@ REDIS_HOST = 'redis'
 REDIS_PORT = 6379
 REDIS_PASSWORD = 'password'
 
-# Токен для асинхронного сервиса
 ASYNC_SERVICE_TOKEN = 'a1b2c3d4e5f6g7h8'
 ASYNC_SERVICE_URL = 'http://localhost:8081'
 
@@ -150,15 +144,12 @@ SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
-# CORS настройки для GitHub Pages и локальной разработки
-# ВАЖНО: с CORS_ALLOW_CREDENTIALS=True нельзя использовать wildcard '*'
-# Должны быть указаны конкретные домены в CORS_ALLOWED_ORIGINS
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    'https://yurchenkok.github.io',  # GitHub Pages
-    'http://localhost:3005',          # Локальная разработка (vite dev)
+    'https://yurchenkok.github.io',
+    'http://localhost:3005',
     'http://127.0.0.1:3005',
-    'http://localhost:5173',          # vite default port
+    'http://localhost:5173',
     'http://127.0.0.1:5173',
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -172,8 +163,5 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    # Allow ngrok's browser warning bypass header so browser fetches with
-    # 'ngrok-skip-browser-warning: 1' will pass preflight during development.
-    # NOTE: only keep this in dev/testing. Remove for stricter production CORS.
     'ngrok-skip-browser-warning',
 ]

@@ -1,4 +1,3 @@
-# Generated migration - combined initial setup
 import django.db.models.deletion
 from django.db import migrations, models
 

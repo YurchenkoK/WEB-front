@@ -126,7 +126,6 @@ func estimationRequestCalculateHandler(c *gin.Context) {
 		return
 	}
 
-	// Конвертируем ID из строки в int
 	var id int
 	if _, err := fmt.Sscanf(estimationRequestID, "%d", &id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{

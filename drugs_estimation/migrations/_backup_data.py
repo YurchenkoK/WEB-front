@@ -1,6 +1,4 @@
-# Данные для восстановления из 28.11.backup1.sql
 
-# 62 заявки из backup
 ORDERS_DATA = [
     {'id': 56, 'status': 'COMPLETED', 'creation_datetime': '2025-11-27 21:39:29.384375+00', 'completion_datetime': '2025-11-27 21:40:13.873869+00', 'ampoules_count': 2, 'solvent_volume': '150.00', 'patient_weight': '75.00', 'creator': 'admin', 'moderator': None, 'formation_datetime': '2025-11-27 21:40:12.06079+00'},
     {'id': 55, 'status': 'DELETED', 'creation_datetime': '2025-11-27 18:55:48.377621+00', 'completion_datetime': None, 'ampoules_count': None, 'solvent_volume': None, 'patient_weight': None, 'creator': 'admin', 'moderator': None, 'formation_datetime': None},
@@ -66,7 +64,6 @@ ORDERS_DATA = [
     {'id': 63, 'status': 'COMPLETED', 'creation_datetime': '2025-11-27 22:52:06.928474+00', 'completion_datetime': '2025-11-27 22:52:26.747989+00', 'ampoules_count': 1, 'solvent_volume': '40.00', 'patient_weight': '80.00', 'creator': 'admin', 'moderator': None, 'formation_datetime': '2025-11-27 22:52:22.885799+00'},
 ]
 
-# 79 связей из backup
 DRUG_IN_ORDER_DATA = [
     {'id': 1, 'drug_id': 3, 'order_id': 1, 'infusion_speed': None, 'ampoule_volume': None},
     {'id': 3, 'drug_id': 4, 'order_id': 1, 'infusion_speed': None, 'ampoule_volume': None},
@@ -150,7 +147,6 @@ DRUG_IN_ORDER_DATA = [
 ]
 
 
-# 14 препаратов (с полными MinIO URL - ТОЧНЫЕ имена файлов из bucket)
 DRUGS_DATA = [
     {'id': 1, 'name': 'Допамин', 'description': '', 'image_url': 'http://localhost:9000/images/dopamine.png', 'concentration': '4.00', 'volume': '5.00', 'is_active': True},
     {'id': 2, 'name': 'Норадреналин', 'description': '', 'image_url': 'http://localhost:9000/images/Norenadren.png', 'concentration': '0.20', 'volume': '4.00', 'is_active': True},
@@ -175,13 +171,10 @@ def restore_from_backup(apps, schema_editor):
     Order = apps.get_model('drugs_estimation', 'Order')
     DrugInOrder = apps.get_model('drugs_estimation', 'DrugInOrder')
     
-    # Препараты
     Drug.objects.bulk_create([Drug(**d) for d in DRUGS_DATA])
     
-    # Заявки
     Order.objects.bulk_create([Order(**o) for o in ORDERS_DATA])
     
-    # Связи
     DrugInOrder.objects.bulk_create([DrugInOrder(**d) for d in DRUG_IN_ORDER_DATA])
     
     print(f"✅ Восстановлено: {len(DRUGS_DATA)} препаратов, {len(ORDERS_DATA)} заявок, {len(DRUG_IN_ORDER_DATA)} связей")

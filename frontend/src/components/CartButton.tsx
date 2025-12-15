@@ -2,21 +2,21 @@ import "./CartButton.css";
 import { useCart } from "../CartContext";
 
 interface CartButtonProps {
-  orderId?: number; // kept for backward compatibility but unused
+  orderId?: number; 
   count?: number;
 }
 
 export default function CartButton({ count }: CartButtonProps) {
-  // Prefer props if provided, otherwise read from context
+  
   const { cart, fetchOnClick } = useCart();
   const usedCount = count ?? cart.count;
 
   const handleClick = async () => {
-    // Use the same centralized function as pages do
+    
     try {
       await fetchOnClick();
     } catch (e) {
-      // fail silently
+      
     }
   };
 

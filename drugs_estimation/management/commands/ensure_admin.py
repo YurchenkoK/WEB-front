@@ -15,7 +15,6 @@ class Command(BaseCommand):
             self.stdout.write(f"  Email: {admin_user.get('email')}")
             self.stdout.write(f"  Is superuser: {is_superuser}")
             
-            # Update admin to ensure superuser status
             if not is_superuser:
                 self.stdout.write('Updating admin user to have superuser privileges...')
                 redis_user_client.redis_client.hset('user:admin', 'is_superuser', '1')

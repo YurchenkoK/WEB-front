@@ -486,16 +486,13 @@ def complete_estimation_request(request, pk):
             status=status.HTTP_403_FORBIDDEN
         )
     
-    # Устанавливаем модератора
     estimation_request.moderator = redis_user.get('username') if isinstance(redis_user, dict) else getattr(request.user, 'username', None)
     estimation_request.completion_datetime = timezone.now()
     
     if action == 'complete':
-        # Утверждаем заявку
         estimation_request.status = EstimationRequest.EstimationRequestStatus.COMPLETED
         estimation_request.save()
         
-        # После утверждения Django-сервис направляет POST запрос /estimation_request_calculate/:id в асинхронный Go-сервис
         drugs_in_estimation = DrugInEstimation.objects.filter(estimation_request=estimation_request)
         drugs_data = []
         for drug_in_estimation in drugs_in_estimation:
@@ -522,7 +519,6 @@ def complete_estimation_request(request, pk):
             pass
     
     elif action == 'reject':
-        # Отклоняем заявку
         estimation_request.status = EstimationRequest.EstimationRequestStatus.REJECTED
         estimation_request.save()
     
@@ -559,7 +555,6 @@ def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
     username = redis_user['username']
     is_superuser = redis_user.get('is_superuser') in ['1', 'True', True]
     
-    # Суперпользователь может редактировать любые заявки
     if not is_superuser and estimation_request.creator != username:
         return Response({"error": "Можно изменять только свои заявки"}, 
                        status=status.HTTP_403_FORBIDDEN)
@@ -733,7 +728,6 @@ def search(request):
     estimation_count = 0
     estimation_request_id = None
     try:
-        # Get Redis user
         redis_user = get_redis_user(request)
         if redis_user:
             username = redis_user['username']
@@ -959,14 +953,12 @@ def update_async_results(request, pk):
     secret_key = request.data.get('secret_key')
     results = request.data.get('results', [])
     
-    # Проверка секретного ключа
     if secret_key != settings.ASYNC_SERVICE_TOKEN:
         return Response(
             {"error": "Неверный секретный ключ"},
             status=status.HTTP_401_UNAUTHORIZED
         )
     
-    # Проверка наличия заявки
     try:
         estimation_request = EstimationRequest.objects.get(pk=pk)
     except EstimationRequest.DoesNotExist:
@@ -975,10 +967,8 @@ def update_async_results(request, pk):
             status=status.HTTP_404_NOT_FOUND
         )
     
-    # Обновление результатов для каждого препарата в заявке
     updated_count = 0
     for result_item in results:
-        # accept both new and old keys for backwards compatibility
         druginestimation_id = result_item.get('druginestimation_id') or result_item.get('druginorder_id')
         infusion_speed = result_item.get('infusion_speed')
 

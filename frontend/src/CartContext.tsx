@@ -19,7 +19,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCart(info);
       return info;
     } catch (err) {
-      // keep existing default on error
+      
       return undefined;
     }
   };
@@ -28,21 +28,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetch();
   }, []);
 
-  // Manage a single ongoing fetch to avoid duplicate requests.
-  // currentFetch holds the active Promise when a request is in progress.
-  // shouldLog marks whether we need to log the result once the fetch completes.
+  
   let currentFetch: Promise<CartInfo | undefined> | null = null;
-  let shouldLog = false;
 
-  const doFetch = (log = false): Promise<CartInfo | undefined> => {
-    // If a fetch is already in progress, record whether this caller
-    // wants the result to be logged and return the same promise.
+  const doFetch = (): Promise<CartInfo | undefined> => {
+    
     if (currentFetch) {
-      if (log) shouldLog = true;
       return currentFetch;
     }
 
-    shouldLog = log;
     currentFetch = (async () => {
       try {
         const info = await getCartInfo();
@@ -54,7 +48,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })();
 
     currentFetch.then(() => {
-      shouldLog = false;
       currentFetch = null;
     });
 
@@ -62,18 +55,17 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refresh = async () => {
-    return await doFetch(false);
+    return await doFetch();
   };
 
-  // Called when entering a page. This will log the cart data.
+  
   const fetchOnPageEnter = async () => {
-    return await doFetch(true);
+    return await doFetch();
   };
 
-  // Called when user clicks the cart button. Don't log to avoid duplicate messages.
+  
   const fetchOnClick = async () => {
-    // Log on click as requested
-    return await doFetch(true);
+    return await doFetch();
   };
 
   return <CartContext.Provider value={{ cart, refresh, fetchOnPageEnter, fetchOnClick }}>{children}</CartContext.Provider>;
