@@ -39,7 +39,26 @@ class DrugInEstimationSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class DrugInEstimationDetailSerializer(serializers.ModelSerializer):
+    """Детальный сериализатор с информацией о препарате"""
+    drug_id = serializers.IntegerField(source='drug.id', read_only=True)
+    drug_name = serializers.CharField(source='drug.name', read_only=True)
+    
+    class Meta:
+        model = DrugInEstimation
+        fields = [
+            'id',
+            'drug_id',
+            'drug_name',
+            'ampoule_volume',
+            'infusion_speed',
+        ]
+        read_only_fields = ['id', 'drug_id', 'drug_name']
+
+
 class EstimationRequestSerializer(serializers.ModelSerializer):
+    items = serializers.SerializerMethodField()
+    
     class Meta:
         model = EstimationRequest
         fields = [
@@ -52,9 +71,14 @@ class EstimationRequestSerializer(serializers.ModelSerializer):
             'completion_datetime',
             'ampoules_count',
             'solvent_volume',
-            'patient_weight'
+            'patient_weight',
+            'items'
         ]
         read_only_fields = ['id', 'doctor', 'laboratory_worker', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
+    
+    def get_items(self, obj):
+        """Возвращает массив ID препаратов в заявке"""
+        return list(obj.items.values_list('drug_id', flat=True))
 
 
 class EstimationRequestListSerializer(serializers.ModelSerializer):
@@ -82,7 +106,8 @@ class EstimationRequestListSerializer(serializers.ModelSerializer):
     
     def get_async_results_count(self, obj):
         """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed)"""
-        return obj.items.filter(infusion_speed__isnull=False).exclude(infusion_speed='').count()
+        from decimal import Decimal
+        return obj.items.filter(infusion_speed__isnull=False).exclude(infusion_speed=Decimal('0')).count()
     
     def get_items(self, obj):
         """Возвращает массив ID препаратов в заявке"""

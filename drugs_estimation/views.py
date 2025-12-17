@@ -11,7 +11,8 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from drugs_estimation.serializers import (
-    UserSerializer, DrugSerializer, EstimationRequestSerializer, DrugInEstimationSerializer
+    UserSerializer, DrugSerializer, EstimationRequestSerializer, DrugInEstimationSerializer,
+    DrugInEstimationDetailSerializer
 )
 from drugs_estimation.models import Drug, EstimationRequest, DrugInEstimation
 from drugs_estimation.redis_client import redis_user_client
@@ -358,11 +359,13 @@ class EstimationRequestDetail(APIView):
         is_staff = redis_user.get('is_staff', False)
         is_superuser = redis_user.get('is_superuser', False)
         
+        if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
+            return Response({"error": "Заявка удалена"}, status=status.HTTP_404_NOT_FOUND)
+        
         if estimation_request.doctor != username and not (is_staff or is_superuser):
             return Response({"error": "Нет доступа к этой заявке"}, 
                           status=status.HTTP_403_FORBIDDEN)
-        if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
-            return Response({"error": "Заявка удалена"}, status=status.HTTP_404_NOT_FOUND)
+        
         serializer = EstimationRequestSerializer(estimation_request)
         return Response(serializer.data)
     
@@ -541,7 +544,22 @@ def complete_estimation_request(request, pk):
             'ampoule_volume': openapi.Schema(type=openapi.TYPE_NUMBER, description='Объём ампулы (мл)')
         }
     ),
-    responses={200: 'Success', 403: 'Forbidden'},
+    responses={
+        200: openapi.Response(
+            description='Успешное обновление препарата в заявке',
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID связи препарата с заявкой'),
+                    'drug_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID препарата'),
+                    'drug_name': openapi.Schema(type=openapi.TYPE_STRING, description='Название препарата'),
+                    'ampoule_volume': openapi.Schema(type=openapi.TYPE_STRING, description='Объём ампулы'),
+                    'infusion_speed': openapi.Schema(type=openapi.TYPE_STRING, description='Скорость введения', nullable=True),
+                }
+            )
+        ),
+        403: 'Forbidden'
+    },
     tags=['M-M']
 )
 @api_view(['DELETE', 'PUT'])
@@ -558,13 +576,14 @@ def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
     if not is_superuser and estimation_request.doctor != username:
         return Response({"error": "Можно изменять только свои заявки"}, 
                        status=status.HTTP_403_FORBIDDEN)
-    if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
-        return Response({"error": "Можно изменять препараты только в черновике"}, 
-                       status=status.HTTP_403_FORBIDDEN)
     
     drug_in_order = get_object_or_404(DrugInEstimation, estimation_request=estimation_request, drug_id=drug_pk)
     
     if request.method == 'DELETE':
+        # DELETE можно выполнять только для черновиков
+        if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
+            return Response({"error": "Можно удалять препараты только в черновике"}, 
+                           status=status.HTTP_403_FORBIDDEN)
         drug_in_order.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     
@@ -581,7 +600,8 @@ def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
         
         drug_in_order.save()
         
-        serializer = DrugInEstimationSerializer(drug_in_order)
+        # Используем детальный сериализатор с информацией о препарате
+        serializer = DrugInEstimationDetailSerializer(drug_in_order)
         return Response(serializer.data)
 
 
