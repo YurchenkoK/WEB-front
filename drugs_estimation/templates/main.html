@@ -35,7 +35,7 @@
     </div>
     <div class="footer">
         {% if data.estimation_count > 0 %}
-            <a href="{% url 'estimation_infusion_speed_with_id' data.order_id %}" class="cart-icon-link">
+            <a href="{% url 'estimation_infusion_speed_with_id' data.estimation_request_id %}" class="cart-icon-link">
                 <div class="icon-circle">
                     <span class="microscope">🔬</span>
                     <span class="cart-badge">{{ data.estimation_count }}</span>

@@ -11,7 +11,7 @@ type CartContextValue = {
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [cart, setCart] = useState<CartInfo>({ order_id: 0, count: 0 });
+  const [cart, setCart] = useState<CartInfo>({ estimation_request_id: 0, count: 0 });
 
   const fetch = async (): Promise<CartInfo | undefined> => {
     try {

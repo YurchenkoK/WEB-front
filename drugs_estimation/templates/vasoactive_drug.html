@@ -23,7 +23,7 @@
                     <p><strong>Концентрация ампулы:</strong> {{ drug.concentration }}</p>
                     <p><strong>Объём ампулы:</strong> {{ drug.volume }}{% if drug.volume == '5 мл' %}, 5 мл, 10 мл{% endif %}</p>
                     <p><strong>Показания:</strong> {{ drug.description }}</p>
-                    <form method="POST" action="{% url 'add_to_order' drug.id %}" class="drug-detail-form">
+                    <form method="POST" action="{% url 'add_to_estimation_request' drug.id %}" class="drug-detail-form">
                         {% csrf_token %}
                         <button type="submit" class="details-button">
                             Добавить к расчётам
@@ -35,7 +35,7 @@
     </div>
     <div class="footer">
         {% if estimation_count > 0 %}
-            <a href="{% url 'estimation_infusion_speed_with_id' order_id %}" class="cart-icon-link">
+            <a href="{% url 'estimation_infusion_speed_with_id' estimation_request_id %}" class="cart-icon-link">
                 <div class="icon-circle">
                     <span class="microscope">🔬</span>
                     <span class="cart-badge">{{ estimation_count }}</span>

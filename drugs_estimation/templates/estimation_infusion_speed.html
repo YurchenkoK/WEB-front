@@ -67,7 +67,7 @@
         <h2 class="cart-title">Расчет скорости инфузии</h2>
         
     {% if data.order_status == 'DRAFT' %}
-    <form method="POST" action="{% url 'update_estimation_request_params' data.order_id %}">
+    <form method="POST" action="{% url 'update_estimation_request_params' data.estimation_request_id %}">
             {% csrf_token %}
             <div class="infusion-calculator">
                 <div class="calculator-form">
@@ -87,16 +87,16 @@
                         {% if data.has_infusion_speeds %}
                             <button type="button" class="search-button button-flex button-success" 
                                     style="width: 100%; max-width: 600px;"
-                                    onclick="document.getElementById('complete-form-{{ data.order_id }}').submit();">
+                                    onclick="document.getElementById('complete-form-{{ data.estimation_request_id }}').submit();">
                                 Завершить заявку
                             </button>
                         {% else %}
                             <button type="submit" class="search-button button-flex">
                                 Рассчитать скорость инфузии
                             </button>
-                            {% if data.order_id %}
+                            {% if data.estimation_request_id %}
                                 <button type="button" class="search-button button-flex button-danger" 
-                                        onclick="document.getElementById('delete-form-{{ data.order_id }}').submit();">
+                                        onclick="document.getElementById('delete-form-{{ data.estimation_request_id }}').submit();">
                                     Удалить заявку
                                 </button>
                             {% endif %}
@@ -106,13 +106,13 @@
             </div>
         </form>
         
-        {% if data.order_id %}
+        {% if data.estimation_request_id %}
             {% if data.estimation_params.ampoules and data.estimation_params.solvent_volume and data.estimation_params.patient_weight %}
-            <form id="complete-form-{{ data.order_id }}" method="POST" action="{% url 'complete_estimation_request' data.order_id %}" class="hidden-form">
+            <form id="complete-form-{{ data.estimation_request_id }}" method="POST" action="{% url 'complete_estimation_request' data.estimation_request_id %}" class="hidden-form">
                 {% csrf_token %}
             </form>
             {% else %}
-            <form id="delete-form-{{ data.order_id }}" method="POST" action="{% url 'delete_estimation_request' data.order_id %}" class="hidden-form">
+            <form id="delete-form-{{ data.estimation_request_id }}" method="POST" action="{% url 'delete_estimation_request' data.estimation_request_id %}" class="hidden-form">
                 {% csrf_token %}
             </form>
             {% endif %}
@@ -136,11 +136,11 @@
                 <div class="form-row form-row-spacing" style="justify-content: center;">
                     <button type="button" class="search-button button-success" 
                             style="width: 100%; max-width: 600px; padding: 15px 30px; display: flex; align-items: center; justify-content: center; line-height: 1;"
-                            onclick="document.getElementById('complete-form-formed-{{ data.order_id }}').submit();">
+                            onclick="document.getElementById('complete-form-formed-{{ data.estimation_request_id }}').submit();">
                         Завершить заявку
                     </button>
                 </div>
-                <form id="complete-form-formed-{{ data.order_id }}" method="POST" action="{% url 'complete_estimation_request' data.order_id %}" class="hidden-form">
+                <form id="complete-form-formed-{{ data.estimation_request_id }}" method="POST" action="{% url 'complete_estimation_request' data.estimation_request_id %}" class="hidden-form">
                     {% csrf_token %}
                 </form>
                 {% endif %}
@@ -170,7 +170,7 @@
                                        class="spec-input-inline" 
                                        value="{{ item.ampoule_volume }}" 
                                        data-drug-id="{{ item.drug_id }}"
-                        data-estimation-request-id="{{ data.order_id }}"
+                        data-estimation-request-id="{{ data.estimation_request_id }}"
                                        onchange="updateAmpouleVolume(this)"
                                        oninput="this.value = this.value.replace(',', '.')">
                             </div>

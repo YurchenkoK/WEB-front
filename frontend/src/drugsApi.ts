@@ -56,7 +56,7 @@ export async function getDrug(id: number): Promise<Drug | null> {
 }
 
 export interface CartInfo {
-  order_id: number;
+  estimation_request_id: number;
   count: number;
 }
 
@@ -70,6 +70,6 @@ export async function getCartInfo(): Promise<CartInfo> {
     return await res.json();
   } catch (err) {
     console.warn("[API] error fetching cart info", err);
-    return { order_id: 0, count: 0 };
+    return { estimation_request_id: 0, count: 0 };
   }
 }

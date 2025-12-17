@@ -293,7 +293,7 @@ def cart_icon(request):
     username = redis_user['username']
     try:
         estimation_request = EstimationRequest.objects.get(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT)
-        count = DrugInEstimation.objects.filter(estimation_request=order).count()
+        count = DrugInEstimation.objects.filter(estimation_request=estimation_request).count()
         return Response({"estimation_request_id": estimation_request.id, "count": count})
     except EstimationRequest.DoesNotExist:
         return Response({"estimation_request_id": 0, "count": 0})
@@ -429,7 +429,7 @@ def form_estimation_request(request, pk):
     if not estimation_request.ampoules_count or not estimation_request.solvent_volume or not estimation_request.patient_weight:
         return Response({"error": "Заполните все обязательные поля"}, 
                        status=status.HTTP_400_BAD_REQUEST)
-    if not DrugInEstimation.objects.filter(estimation_request=order).exists():
+    if not DrugInEstimation.objects.filter(estimation_request=estimation_request).exists():
         return Response({"error": "В заявке должен быть хотя бы один препарат"}, 
                        status=status.HTTP_400_BAD_REQUEST)
     
@@ -562,7 +562,7 @@ def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
         return Response({"error": "Можно изменять препараты только в черновике"}, 
                        status=status.HTTP_403_FORBIDDEN)
     
-    drug_in_order = get_object_or_404(DrugInEstimation, order=estimation_request, drug_id=drug_pk)
+    drug_in_order = get_object_or_404(DrugInEstimation, estimation_request=estimation_request, drug_id=drug_pk)
     
     if request.method == 'DELETE':
         drug_in_order.delete()
@@ -794,7 +794,7 @@ def add_to_estimation_request_html(request, drug_id):
     )
     
     drug_in_order, created = DrugInEstimation.objects.get_or_create(
-        order=draft_order,
+        estimation_request=draft_order,
         drug=drug
     )
     
@@ -812,7 +812,7 @@ def estimation_infusion_speed(request, estimation_request_id=None):
         estimation_request = get_object_or_404(EstimationRequest, id=estimation_request_id, creator=username)
         if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
             raise Http404("Заявка удалена")
-        draft_order = order
+        draft_order = estimation_request
     else:
         draft_order = EstimationRequest.objects.filter(
             creator=username, 
@@ -885,7 +885,7 @@ def update_estimation_request_params(request, estimation_request_id):
     estimation_request.formation_datetime = timezone.now()
     estimation_request.save()
     
-    drugs_in_order = DrugInEstimation.objects.filter(estimation_request=order)
+    drugs_in_order = DrugInEstimation.objects.filter(estimation_request=estimation_request)
     for drug_in_order in drugs_in_order:
         drug_in_order.calculate_infusion_speed()
         drug_in_order.save()
