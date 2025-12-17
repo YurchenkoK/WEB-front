@@ -292,7 +292,7 @@ def cart_icon(request):
     
     username = redis_user['username']
     try:
-        estimation_request = EstimationRequest.objects.get(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT)
+        estimation_request = EstimationRequest.objects.get(doctor=username, status=EstimationRequest.EstimationRequestStatus.DRAFT)
         count = DrugInEstimation.objects.filter(estimation_request=estimation_request).count()
         return Response({"estimation_request_id": estimation_request.id, "count": count})
     except EstimationRequest.DoesNotExist:
@@ -322,7 +322,7 @@ class EstimationRequestList(APIView):
         if is_staff or is_superuser:
             estimation_requests = EstimationRequest.objects.exclude(status=EstimationRequest.EstimationRequestStatus.DELETED)
         else:
-            estimation_requests = EstimationRequest.objects.filter(creator=username).exclude(status=EstimationRequest.EstimationRequestStatus.DELETED)
+            estimation_requests = EstimationRequest.objects.filter(doctor=username).exclude(status=EstimationRequest.EstimationRequestStatus.DELETED)
         
         date_from = request.query_params.get('date_from', None)
         date_to = request.query_params.get('date_to', None)
@@ -358,7 +358,7 @@ class EstimationRequestDetail(APIView):
         is_staff = redis_user.get('is_staff', False)
         is_superuser = redis_user.get('is_superuser', False)
         
-        if estimation_request.creator != username and not (is_staff or is_superuser):
+        if estimation_request.doctor != username and not (is_staff or is_superuser):
             return Response({"error": "Нет доступа к этой заявке"}, 
                           status=status.HTTP_403_FORBIDDEN)
         if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
@@ -378,7 +378,7 @@ class EstimationRequestDetail(APIView):
         estimation_request = get_object_or_404(EstimationRequest, pk=pk)
         username = redis_user['username']
         
-        if estimation_request.creator != username:
+        if estimation_request.doctor != username:
             return Response({"error": "Можно редактировать только свои заявки"}, 
                           status=status.HTTP_403_FORBIDDEN)
         if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
@@ -398,7 +398,7 @@ class EstimationRequestDetail(APIView):
         estimation_request = get_object_or_404(EstimationRequest, pk=pk)
         username = redis_user['username']
         
-        if estimation_request.creator != username:
+        if estimation_request.doctor != username:
             return Response({"error": "Можно удалять только свои заявки"}, 
                           status=status.HTTP_403_FORBIDDEN)
         estimation_request.status = EstimationRequest.EstimationRequestStatus.DELETED
@@ -420,7 +420,7 @@ def form_estimation_request(request, pk):
     estimation_request = get_object_or_404(EstimationRequest, pk=pk)
     username = redis_user['username']
     
-    if estimation_request.creator != username:
+    if estimation_request.doctor != username:
         return Response({"error": "Можно формировать только свои заявки"}, 
                        status=status.HTTP_403_FORBIDDEN)
     if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
@@ -486,7 +486,7 @@ def complete_estimation_request(request, pk):
             status=status.HTTP_403_FORBIDDEN
         )
     
-    estimation_request.moderator = redis_user.get('username') if isinstance(redis_user, dict) else getattr(request.user, 'username', None)
+    estimation_request.laboratory_worker = redis_user.get('username') if isinstance(redis_user, dict) else getattr(request.user, 'username', None)
     estimation_request.completion_datetime = timezone.now()
     
     if action == 'complete':
@@ -555,7 +555,7 @@ def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
     username = redis_user['username']
     is_superuser = redis_user.get('is_superuser') in ['1', 'True', True]
     
-    if not is_superuser and estimation_request.creator != username:
+    if not is_superuser and estimation_request.doctor != username:
         return Response({"error": "Можно изменять только свои заявки"}, 
                        status=status.HTTP_403_FORBIDDEN)
     if estimation_request.status != EstimationRequest.EstimationRequestStatus.DRAFT:
@@ -695,7 +695,7 @@ def add_drug_to_estimation_request(request, pk):
     drug = get_object_or_404(Drug, pk=pk, is_active=True)
     username = redis_user['username']
     estimation_request, created = EstimationRequest.objects.get_or_create(
-        creator=username,
+        doctor=username,
         status=EstimationRequest.EstimationRequestStatus.DRAFT,
         defaults={'creation_datetime': timezone.now()}
     )
@@ -734,7 +734,7 @@ def search(request):
         else:
             username = 'AnonymousUser'
         
-        draft_order = EstimationRequest.objects.filter(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT).first()
+        draft_order = EstimationRequest.objects.filter(doctor=username, status=EstimationRequest.EstimationRequestStatus.DRAFT).first()
         if draft_order:
             estimation_count = DrugInEstimation.objects.filter(estimation_request=draft_order).count()
             estimation_request_id = draft_order.id
@@ -766,7 +766,7 @@ def vasoactive_drug_detail(request, drug_id):
         else:
             username = 'AnonymousUser'
         
-        draft_order = EstimationRequest.objects.filter(creator=username, status=EstimationRequest.EstimationRequestStatus.DRAFT).first()
+        draft_order = EstimationRequest.objects.filter(doctor=username, status=EstimationRequest.EstimationRequestStatus.DRAFT).first()
         if draft_order:
             estimation_count = DrugInEstimation.objects.filter(estimation_request=draft_order).count()
             estimation_request_id = draft_order.id
@@ -789,7 +789,7 @@ def add_to_estimation_request_html(request, drug_id):
         username = redis_user['username']
     
     draft_order, created = EstimationRequest.objects.get_or_create(
-        creator=username,
+        doctor=username,
         status=EstimationRequest.EstimationRequestStatus.DRAFT
     )
     
@@ -809,13 +809,13 @@ def estimation_infusion_speed(request, estimation_request_id=None):
         username = redis_user['username']
     
     if estimation_request_id:
-        estimation_request = get_object_or_404(EstimationRequest, id=estimation_request_id, creator=username)
+        estimation_request = get_object_or_404(EstimationRequest, id=estimation_request_id, doctor=username)
         if estimation_request.status == EstimationRequest.EstimationRequestStatus.DELETED:
             raise Http404("Заявка удалена")
         draft_order = estimation_request
     else:
         draft_order = EstimationRequest.objects.filter(
-            creator=username, 
+            doctor=username, 
             status__in=[EstimationRequest.EstimationRequestStatus.DRAFT, EstimationRequest.EstimationRequestStatus.FORMED]
         ).first()
     

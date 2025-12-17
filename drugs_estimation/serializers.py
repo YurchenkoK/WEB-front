@@ -44,8 +44,8 @@ class EstimationRequestSerializer(serializers.ModelSerializer):
         model = EstimationRequest
         fields = [
             'id',
-            'creator',
-            'moderator',
+            'doctor',
+            'laboratory_worker',
             'status',
             'creation_datetime',
             'formation_datetime',
@@ -54,7 +54,7 @@ class EstimationRequestSerializer(serializers.ModelSerializer):
             'solvent_volume',
             'patient_weight'
         ]
-        read_only_fields = ['id', 'creator', 'moderator', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
+        read_only_fields = ['id', 'doctor', 'laboratory_worker', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
 
 
 class EstimationRequestListSerializer(serializers.ModelSerializer):
@@ -66,8 +66,8 @@ class EstimationRequestListSerializer(serializers.ModelSerializer):
         model = EstimationRequest
         fields = [
             'id',
-            'creator',
-            'moderator',
+            'doctor',
+            'laboratory_worker',
             'status',
             'creation_datetime',
             'formation_datetime',
@@ -78,7 +78,7 @@ class EstimationRequestListSerializer(serializers.ModelSerializer):
             'async_results_count',
             'items'
         ]
-        read_only_fields = ['id', 'creator', 'moderator', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
+        read_only_fields = ['id', 'doctor', 'laboratory_worker', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
     
     def get_async_results_count(self, obj):
         """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed)"""

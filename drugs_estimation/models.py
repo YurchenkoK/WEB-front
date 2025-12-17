@@ -27,15 +27,15 @@ class EstimationRequest(models.Model):
         COMPLETED = "COMPLETED", "Завершён"
         REJECTED = "REJECTED", "Отклонён"
     
-    creator = models.CharField(
+    doctor = models.CharField(
         max_length=150,
-        verbose_name="Создатель (username)"
+        verbose_name="Врач (username)"
     )
-    moderator = models.CharField(
+    laboratory_worker = models.CharField(
         max_length=150,
         null=True, 
         blank=True,
-        verbose_name="Модератор (username)"
+        verbose_name="Лаборант (username)"
     )
     status = models.CharField(
         max_length=10, 

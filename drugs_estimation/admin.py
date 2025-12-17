@@ -22,13 +22,13 @@ class DrugAdmin(admin.ModelAdmin):
 
 @admin.register(EstimationRequest)
 class EstimationRequestAdmin(admin.ModelAdmin):
-    list_display = ('id', 'status', 'creator', 'ampoules_count', 'solvent_volume', 'patient_weight', 'creation_datetime', 'formation_datetime', 'completion_datetime')
+    list_display = ('id', 'status', 'doctor', 'ampoules_count', 'solvent_volume', 'patient_weight', 'creation_datetime', 'formation_datetime', 'completion_datetime')
     list_filter = ('status', 'creation_datetime')
-    search_fields = ('creator__username',)
+    search_fields = ('doctor',)
     readonly_fields = ('creation_datetime',)
     fieldsets = (
         ('Общая информация', {
-            'fields': ('status', 'creator', 'moderator', 'creation_datetime', 'formation_datetime', 'completion_datetime')
+            'fields': ('status', 'doctor', 'laboratory_worker', 'creation_datetime', 'formation_datetime', 'completion_datetime')
         }),
         ('Параметры расчета', {
             'fields': ('ampoules_count', 'solvent_volume', 'patient_weight')
