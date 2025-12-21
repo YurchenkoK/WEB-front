@@ -40,24 +40,37 @@ class DrugInEstimationSerializer(serializers.ModelSerializer):
 
 
 class DrugInEstimationDetailSerializer(serializers.ModelSerializer):
-    """Детальный сериализатор с информацией о препарате"""
+    """Сериализатор препарата в заявке для детального просмотра - все поля в одном уровне"""
+    # ID препарата из связанной таблицы Drug
     drug_id = serializers.IntegerField(source='drug.id', read_only=True)
-    drug_name = serializers.CharField(source='drug.name', read_only=True)
+    
+    # Основная информация о препарате из таблицы Drug
+    title = serializers.CharField(source='drug.name', read_only=True)
+    image = serializers.URLField(source='drug.image_url', read_only=True)
+    description = serializers.CharField(source='drug.description', read_only=True)
+    # Данные из таблицы DrugInEstimation
+    drug_in_estimation_id = serializers.IntegerField(source='id', read_only=True)  # ID записи в drug_in_estimation
+    infusion_speed_rate = serializers.DecimalField(source='infusion_speed', max_digits=10, decimal_places=2, read_only=True)  # infusion_speed из drug_in_estimation
+    ampoule_volume = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)  # ampoule_volume из drug_in_estimation
     
     class Meta:
         model = DrugInEstimation
         fields = [
-            'id',
             'drug_id',
-            'drug_name',
+            'title',
+            'image',
+            'description',
+            'drug_in_estimation_id',
+            'infusion_speed_rate',
             'ampoule_volume',
-            'infusion_speed',
         ]
-        read_only_fields = ['id', 'drug_id', 'drug_name']
+    
+    # removed is_delete field: not needed in many-to-many flattened output
 
 
 class EstimationRequestSerializer(serializers.ModelSerializer):
-    items = serializers.SerializerMethodField()
+    """Детальный сериализатор заявки - возвращает заявку с полным массивом препаратов в плоской структуре"""
+    drugs_in_estimation = serializers.SerializerMethodField()
     
     class Meta:
         model = EstimationRequest
@@ -72,19 +85,19 @@ class EstimationRequestSerializer(serializers.ModelSerializer):
             'ampoules_count',
             'solvent_volume',
             'patient_weight',
-            'items'
+            'drugs_in_estimation'
         ]
         read_only_fields = ['id', 'doctor', 'laboratory_worker', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
     
-    def get_items(self, obj):
-        """Возвращает массив ID препаратов в заявке"""
-        return list(obj.items.values_list('drug_id', flat=True))
+    def get_drugs_in_estimation(self, obj):
+        """Возвращает массив препаратов с полной информацией в плоской структуре"""
+        items = obj.items.select_related('drug').all()
+        return DrugInEstimationDetailSerializer(items, many=True).data
 
 
 class EstimationRequestListSerializer(serializers.ModelSerializer):
-    """Serializer for estimation request list view — excludes item details to keep list compact."""
-    async_results_count = serializers.SerializerMethodField()
-    items = serializers.SerializerMethodField()
+    """Serializer for estimation request list view — только поля заявки + счетчик посчитанных элементов."""
+    completed_drug_estimation = serializers.SerializerMethodField()
     
     class Meta:
         model = EstimationRequest
@@ -99,19 +112,14 @@ class EstimationRequestListSerializer(serializers.ModelSerializer):
             'ampoules_count',
             'solvent_volume',
             'patient_weight',
-            'async_results_count',
-            'items'
+            'completed_drug_estimation'
         ]
         read_only_fields = ['id', 'doctor', 'laboratory_worker', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
     
-    def get_async_results_count(self, obj):
-        """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed)"""
+    def get_completed_drug_estimation(self, obj):
+        """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed != null и != 0)"""
         from decimal import Decimal
         return obj.items.filter(infusion_speed__isnull=False).exclude(infusion_speed=Decimal('0')).count()
-    
-    def get_items(self, obj):
-        """Возвращает массив ID препаратов в заявке"""
-        return list(obj.items.values_list('drug_id', flat=True))
 
 
 class UserSerializer(serializers.Serializer):
