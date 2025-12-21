@@ -45,8 +45,8 @@ class DrugInEstimationDetailSerializer(serializers.ModelSerializer):
     drug_id = serializers.IntegerField(source='drug.id', read_only=True)
     
     # Основная информация о препарате из таблицы Drug
-    title = serializers.CharField(source='drug.name', read_only=True)
-    image = serializers.URLField(source='drug.image_url', read_only=True)
+    name = serializers.CharField(source='drug.name', read_only=True)
+    image_url = serializers.URLField(source='drug.image_url', read_only=True)
     description = serializers.CharField(source='drug.description', read_only=True)
     # Данные из таблицы DrugInEstimation
     drug_in_estimation_id = serializers.IntegerField(source='id', read_only=True)  # ID записи в drug_in_estimation
@@ -57,8 +57,8 @@ class DrugInEstimationDetailSerializer(serializers.ModelSerializer):
         model = DrugInEstimation
         fields = [
             'drug_id',
-            'title',
-            'image',
+            'name',
+            'image_url',
             'description',
             'drug_in_estimation_id',
             'infusion_speed_rate',
