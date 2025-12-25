@@ -4,29 +4,16 @@ const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
 const API_BASE_URL = isTauri 
   ? 'http://localhost:8005'
-  : (import.meta.env.VITE_API_BASE_URL || '');
+  : '';
 
-// Функция для преобразования URL изображений через прокси порта 3005
 function proxyImageUrl(url: string | null | undefined): string | undefined {
   if (!url) return undefined;
   
-  // Если Tauri, возвращаем как есть
   if (isTauri) return url;
   
-  // В dev режиме (с Vite proxy): заменяем localhost:9000 на пустую строку
-  // http://localhost:9000/images/... -> /images/...
-  // В production: заменяем localhost:9000 на API_BASE_URL
-  // http://localhost:9000/images/... -> http://192.168.1.240:8005/images/...
-  if (API_BASE_URL) {
-    // Production mode - используем API_BASE_URL
-    return url.replace('http://localhost:9000', API_BASE_URL);
-  } else {
-    // Dev mode - используем Vite proxy
-    return url.replace('http://localhost:9000', '');
-  }
+  return url.replace('http://localhost:9000', '');
 }
 
-// Функция для преобразования Drug объекта с проксированным URL
 export function proxyDrugImageUrl(drug: Drug): Drug {
   return {
     ...drug,

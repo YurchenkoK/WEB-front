@@ -21,6 +21,8 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    path('images/<path:path>', views.proxy_minio_image, name='proxy-minio-image'),
+    
     path('', views.search, name='search'),
     path('vasoactive_drug/<int:drug_id>/', views.vasoactive_drug_detail, name='vasoactive_drug_detail'),
     path('add_to_estimation_request/<int:drug_id>/', views.add_to_estimation_request_html, name='add_to_estimation_request'),

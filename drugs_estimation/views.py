@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from django.utils import timezone
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.db import connection
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
@@ -22,6 +22,7 @@ from django.core.files.uploadedfile import InMemoryUploadedFile
 from drugs_estimation.permissions import IsManager, IsAdmin, IsAuthenticated, get_redis_user
 import socket
 from urllib.parse import urlparse
+import requests
 
 
 def _get_preferred_image_base():
@@ -1073,3 +1074,36 @@ def update_async_results(request, pk):
         "updated_count": updated_count
     })
 
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def proxy_minio_image(request, path):
+    """
+    Proxy images from MinIO to avoid CORS issues
+    Frontend (3005) -> Django (8005) -> MinIO (9000)
+    """
+    minio_host = 'minio'
+    minio_port = 9000
+    
+    try:
+        socket.getaddrinfo('host.docker.internal', None)
+        minio_host = 'host.docker.internal'
+    except Exception:
+        pass
+    
+    minio_url = f"http://{minio_host}:{minio_port}/images/{path}"
+    
+    try:
+        response = requests.get(minio_url, stream=True, timeout=10)
+        
+        if response.status_code == 200:
+            content_type = response.headers.get('Content-Type', 'image/png')
+            return StreamingHttpResponse(
+                response.iter_content(chunk_size=8192),
+                content_type=content_type,
+                status=200
+            )
+        else:
+            return HttpResponse(status=response.status_code)
+    except requests.exceptions.RequestException as e:
+        return HttpResponse(f"Error proxying image: {str(e)}", status=502)

@@ -33,9 +33,10 @@ export default defineConfig(({ mode }) => {
           ws: true,
         },
         "/images": {
-          target: `http://${minioHost}:${minioPort}`,
+          target: `http://${backendHost}:${backendPort}`,
           changeOrigin: true,
           secure: false,
+          rewrite: (path) => path,
         },
       },
       watch: {
