@@ -14,11 +14,15 @@ export default defineConfig(({ mode }) => {
     base: "/vasoactive_drug_speed_estimatior_frontend/",
     server: { 
       port: 3005,
-      host: '0.0.0.0', // Слушаем на всех интерфейсах для доступа по IP
+      host: '0.0.0.0',
       strictPort: true,
-      https: {}, // Включаем HTTPS через mkcert (пустой объект = автоматическая генерация сертификатов)
+      https: {}, 
       cors: {
-        origin: ['https://yurchenkok.github.io', 'http://localhost:3005', 'http://192.168.1.240:3005', 'https://192.168.1.240:3005'],
+        origin: [
+          'https://yurchenkok.github.io', 
+          'http://localhost:3005', 
+          'http://192.168.1.240:3005', 
+          'https://192.168.1.240:3005'],
         credentials: true,
       },
       proxy: {
@@ -27,11 +31,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
           ws: true,
-        },
-        "/media": {
-          target: `http://${backendHost}:${backendPort}`,
-          changeOrigin: true,
-          secure: false,
         },
         "/images": {
           target: `http://${minioHost}:${minioPort}`,

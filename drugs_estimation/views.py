@@ -20,45 +20,83 @@ from minio import Minio
 from django.conf import settings
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from drugs_estimation.permissions import IsManager, IsAdmin, IsAuthenticated, get_redis_user
+import socket
+from urllib.parse import urlparse
 
 
-def process_file_upload(file_object: InMemoryUploadedFile, client, image_name):
+def _get_preferred_image_base():
+    """Return preferred base URL (scheme://host:port) used by existing Drug.image_url entries.
+    Fallback to settings.AWS_S3_ENDPOINT_URL if none found.
+    """
+    try:
+        img = Drug.objects.exclude(image_url__isnull=True).exclude(image_url='').values_list('image_url', flat=True).first()
+        if img:
+            p = urlparse(img)
+            if p.scheme and p.netloc:
+                return f"{p.scheme}://{p.netloc}"
+    except Exception:
+        pass
+    # ensure settings value has scheme
+    cfg = settings.AWS_S3_ENDPOINT_URL
+    if cfg.startswith('http://') or cfg.startswith('https://'):
+        parsed = urlparse(cfg)
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return cfg
+
+
+def process_file_upload(file_object: InMemoryUploadedFile, client, image_name, endpoint_url=None, secure=False):
     try:
         bucket_name = 'images'
-        
+
         if not client.bucket_exists(bucket_name):
             client.make_bucket(bucket_name)
-        
+
         client.put_object(bucket_name, image_name, file_object, file_object.size)
-        
-        return f"http://localhost:9000/{bucket_name}/{image_name}"
+
+        scheme = 'https' if secure else 'http'
+        if endpoint_url:
+            return f"{scheme}://{endpoint_url.rstrip('/')}/{bucket_name}/{image_name}"
+        # fallback to settings value
+        return f"{scheme}://{settings.AWS_S3_ENDPOINT_URL.rstrip('/')}/{bucket_name}/{image_name}"
     except Exception as e:
         return {"error": str(e)}
 
 
 def add_pic(drug, pic):
-    endpoint = settings.AWS_S3_ENDPOINT_URL.replace('http://', '').replace('https://', '')
+    if not pic:
+        return Response({"error": "Нет файла для изображения логотипа."}, status=status.HTTP_400_BAD_REQUEST)
+
+    # determine usable endpoint (try configured, fallback to host.docker.internal)
+    configured_endpoint = settings.AWS_S3_ENDPOINT_URL
+    endpoint_hostport = configured_endpoint.replace('http://', '').replace('https://', '')
+    try:
+        host_part = endpoint_hostport.split(':')[0]
+        socket.getaddrinfo(host_part, None)
+        endpoint_to_use = endpoint_hostport
+    except Exception:
+        # fallback to host.docker.internal with same port if possible
+        try:
+            port = endpoint_hostport.split(':')[1] if ':' in endpoint_hostport else '9000'
+        except Exception:
+            port = '9000'
+        endpoint_to_use = f'host.docker.internal:{port}'
+
     client = Minio(
-        endpoint=endpoint,
+        endpoint=endpoint_to_use,
         access_key=settings.AWS_ACCESS_KEY_ID,
         secret_key=settings.AWS_SECRET_ACCESS_KEY,
         secure=settings.MINIO_USE_SSL
     )
-    
+
     img_obj_name = pic.name
-    
-    if not pic:
-        return Response({"error": "Нет файла для изображения логотипа."})
-    
-    result = process_file_upload(pic, client, img_obj_name)
-    
+
+    result = process_file_upload(pic, client, img_obj_name, endpoint_url=endpoint_to_use, secure=settings.MINIO_USE_SSL)
+
     if isinstance(result, dict) and 'error' in result:
-        return Response(result)
-    
-    drug.image_url = result
-    drug.save()
-    
-    return Response({"message": "success"})
+        return {"error": result['error']}
+
+    # return the uploaded object's full URL (scheme://host:port/images/name)
+    return result
 
 
 def delete_pic(drug):
@@ -67,13 +105,24 @@ def delete_pic(drug):
     
     try:
         endpoint = settings.AWS_S3_ENDPOINT_URL.replace('http://', '').replace('https://', '')
+        try:
+            host_part = endpoint.split(':')[0]
+            socket.getaddrinfo(host_part, None)
+            endpoint_to_use = endpoint
+        except Exception:
+            try:
+                port = endpoint.split(':')[1] if ':' in endpoint else '9000'
+            except Exception:
+                port = '9000'
+            endpoint_to_use = f'host.docker.internal:{port}'
+
         client = Minio(
-            endpoint=endpoint,
+            endpoint=endpoint_to_use,
             access_key=settings.AWS_ACCESS_KEY_ID,
             secret_key=settings.AWS_SECRET_ACCESS_KEY,
             secure=settings.MINIO_USE_SSL
         )
-        
+
         img_obj_name = drug.image_url.split('/')[-1]
         client.remove_object('images', img_obj_name)
     except Exception:
@@ -133,13 +182,10 @@ class UserRegistration(APIView):
             "message": "Пользователь успешно зарегистрирован"
         }, status=status.HTTP_201_CREATED)
         
-        token = redis_user_client.create_token(username)
-        
-        response.set_cookie('session_id', session_id, 
-                          max_age=86400, httponly=True, samesite='Lax')
-        
-        response.data['token'] = token
-        
+        # create session cookie only; do not expose token in response body
+        response.set_cookie('session_id', session_id,
+                            max_age=86400, httponly=True, samesite='Lax')
+
         return response
 
 
@@ -695,10 +741,27 @@ def add_drug_image(request, pk):
         return Response({"error": "Файл изображения не предоставлен"}, 
                        status=status.HTTP_400_BAD_REQUEST)
     pic_result = add_pic(drug, pic)
-    if hasattr(pic_result, 'data') and 'error' in pic_result.data:
-        return pic_result
-    serializer = DrugSerializer(drug)
-    return Response(serializer.data)
+    if isinstance(pic_result, dict) and 'error' in pic_result:
+        return Response(pic_result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # pic_result is a full URL returned by process_file_upload, normalize to preferred base
+    try:
+        parsed = urlparse(pic_result)
+        path = parsed.path
+    except Exception:
+        path = '/' + pic.name
+
+    preferred_base = _get_preferred_image_base()
+    final_url = preferred_base.rstrip('/') + path
+
+    drug.image_url = final_url
+    drug.save()
+
+    return Response({
+        "drug_id": drug.id,
+        "name": drug.name,
+        "image_url": final_url
+    })
 
 
 @swagger_auto_schema(
@@ -1006,7 +1069,6 @@ def update_async_results(request, pk):
     
     return Response({
         "status": "success",
-        "message": "Результаты успешно обновлены",
         "estimation_request_id": pk,
         "updated_count": updated_count
     })

@@ -47,7 +47,6 @@ class DrugInEstimationDetailSerializer(serializers.ModelSerializer):
     # Основная информация о препарате из таблицы Drug
     name = serializers.CharField(source='drug.name', read_only=True)
     image_url = serializers.URLField(source='drug.image_url', read_only=True)
-    description = serializers.CharField(source='drug.description', read_only=True)
     # Данные из таблицы DrugInEstimation
     drug_in_estimation_id = serializers.IntegerField(source='id', read_only=True)  # ID записи в drug_in_estimation
     infusion_speed_rate = serializers.DecimalField(source='infusion_speed', max_digits=10, decimal_places=2, read_only=True)  # infusion_speed из drug_in_estimation
@@ -59,7 +58,6 @@ class DrugInEstimationDetailSerializer(serializers.ModelSerializer):
             'drug_id',
             'name',
             'image_url',
-            'description',
             'drug_in_estimation_id',
             'infusion_speed_rate',
             'ampoule_volume',
@@ -132,3 +130,19 @@ class UserSerializer(serializers.Serializer):
     last_name = serializers.CharField(required=False, allow_blank=True)
     is_staff = serializers.BooleanField(read_only=True)
     is_superuser = serializers.BooleanField(read_only=True)
+
+    def update(self, instance, validated_data):
+        """
+        Update a user stored in Redis.
+        `instance` is expected to be a dict returned by `redis_user_client.get_user_by_id`.
+        """
+        from drugs_estimation.redis_client import redis_user_client
+
+        username = instance.get('username') if isinstance(instance, dict) else None
+        if not username:
+            # Nothing to update or unexpected instance shape — return as-is
+            return instance
+
+        # redis_user_client.update_user will ignore disallowed fields
+        updated = redis_user_client.update_user(username, **validated_data)
+        return updated
