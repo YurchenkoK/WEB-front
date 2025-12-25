@@ -7,6 +7,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const backendHost = env.VITE_BACKEND_HOST || '127.0.0.1';
   const backendPort = env.VITE_BACKEND_PORT || '8005';
+  const minioHost = env.VITE_MINIO_HOST || 'host.docker.internal';
+  const minioPort = env.VITE_MINIO_PORT || '9000';
 
   return {
     base: "/vasoactive_drug_speed_estimatior_frontend/",
@@ -22,6 +24,16 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
+        "/media": {
+          target: `http://${backendHost}:${backendPort}`,
+          changeOrigin: true,
+          secure: false,
+        },
+        "/images": {
+          target: `http://${minioHost}:${minioPort}`,
+          changeOrigin: true,
+          secure: false,
+        },
       },
       watch: {
         usePolling: true,
@@ -33,7 +45,7 @@ export default defineConfig(({ mode }) => {
     VitePWA({
       registerType: "autoUpdate",
       devOptions: {
-        enabled: true,
+        enabled: false, // Отключаем Service Worker в dev режиме
       },
       includeAssets: ["favicon.ico", "apple-touch-icon.png", "favicon-16x16.png", "favicon-32x32.png"],
       manifest: {

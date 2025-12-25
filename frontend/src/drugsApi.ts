@@ -2,11 +2,29 @@ import type { Drug } from "./DrugTypes";
 
 const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
 
-
-
 const API_BASE_URL = isTauri 
   ? 'http://localhost:8005'
   : (import.meta.env.VITE_API_BASE_URL || '');
+
+// Функция для преобразования URL изображений через прокси порта 3005
+function proxyImageUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined;
+  
+  // Если Tauri, возвращаем как есть
+  if (isTauri) return url;
+  
+  // Заменяем localhost:9000 на текущий хост (будет проксироваться через Vite)
+  // http://localhost:9000/images/... -> /images/...
+  return url.replace('http://localhost:9000', '');
+}
+
+// Функция для преобразования Drug объекта с проксированным URL
+export function proxyDrugImageUrl(drug: Drug): Drug {
+  return {
+    ...drug,
+    image_url: proxyImageUrl(drug.image_url)
+  };
+}
 
 function getHeaders(): HeadersInit {
   const headers: HeadersInit = {
@@ -37,7 +55,9 @@ export async function listDrugs(params?: {
 
     const res = await fetch(path, { headers: getHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const drugs: Drug[] = await res.json();
+    // Преобразуем URL изображений для работы через прокси
+    return drugs.map(proxyDrugImageUrl);
   } catch (err) {
     console.warn("[API] error fetching drugs", err);
     return [];
@@ -48,7 +68,9 @@ export async function getDrug(id: number): Promise<Drug | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/drugs/${id}/`, { headers: getHeaders() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const drug: Drug = await res.json();
+    // Преобразуем URL изображения для работы через прокси
+    return proxyDrugImageUrl(drug);
   } catch (err) {
     console.warn("[API] error fetching drug", err);
     return null;
