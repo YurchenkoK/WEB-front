@@ -11,8 +11,8 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from drugs_estimation.serializers import (
-    UserSerializer, DrugSerializer, EstimationRequestSerializer, DrugInEstimationSerializer,
-    DrugInEstimationDetailSerializer
+    UserSerializer, DrugSerializer, DrugListSerializer, EstimationRequestSerializer,
+    DrugInEstimationSerializer, DrugInEstimationDetailSerializer
 )
 from drugs_estimation.models import Drug, EstimationRequest, DrugInEstimation
 from drugs_estimation.redis_client import redis_user_client
@@ -670,7 +670,8 @@ class DrugList(APIView):
         name = request.query_params.get('name', None)
         if name:
             drugs = drugs.filter(name__icontains=name)
-        serializer = DrugSerializer(drugs, many=True)
+        # Use list serializer that excludes 'volume' field for the list endpoint
+        serializer = DrugListSerializer(drugs, many=True)
         return Response(serializer.data)
     
     @swagger_auto_schema(

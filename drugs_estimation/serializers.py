@@ -8,9 +8,23 @@ class DrugSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Drug
+        # Full serializer used for detail view and create/update
         fields = ["id", "name", "description", "concentration", "volume", "image_url"]
         read_only_fields = ['id', 'image_url']
     
+    def get_image_url(self, obj):
+        return obj.image_url if obj.image_url else None
+
+
+class DrugListSerializer(serializers.ModelSerializer):
+    """Serializer for the /api/drugs/ list endpoint — excludes 'volume' field."""
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Drug
+        # place image_url right after name and exclude description for list endpoint
+        fields = ["id", "name", "image_url", "concentration"]
+
     def get_image_url(self, obj):
         return obj.image_url if obj.image_url else None
 
