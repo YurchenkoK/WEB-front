@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useCart } from "../CartContext";
 import { useSelector, useDispatch } from "react-redux";
 import Breadcrumbs from "../components/Breadcrumbs";
 import DrugCard from "../components/DrugCard";
@@ -14,7 +13,6 @@ import CartButton from "../components/CartButton";
 export default function DrugsPage() {
   const dispatch = useDispatch();
   const searchName = useSelector((state: RootState) => state.drugsFilter.name);
-  const { fetchOnPageEnter } = useCart();
   
 
   const [drugs, setDrugs] = useState<Drug[]>([]);
@@ -77,14 +75,6 @@ export default function DrugsPage() {
     const filter: any = {};
     if (searchName) filter.name = searchName;
     fetchDrugs(Object.keys(filter).length > 0 ? filter : undefined);
-    
-    (async () => {
-      try {
-        await fetchOnPageEnter();
-      } catch (e) {
-        
-      }
-    })();
   }, []);
 
   return (

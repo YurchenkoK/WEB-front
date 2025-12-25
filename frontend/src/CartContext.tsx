@@ -12,6 +12,7 @@ const CartContext = createContext<CartContextValue | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [cart, setCart] = useState<CartInfo>({ estimation_request_id: 0, count: 0 });
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const fetch = async (): Promise<CartInfo | undefined> => {
     try {
@@ -19,16 +20,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCart(info);
       return info;
     } catch (err) {
-      
       return undefined;
     }
   };
 
+  // Загружаем корзину только один раз при монтировании
   useEffect(() => {
-    fetch();
+    if (!isInitialized) {
+      fetch().then(() => setIsInitialized(true));
+    }
   }, []);
 
-  
+  // Защита от одновременных запросов
   let currentFetch: Promise<CartInfo | undefined> | null = null;
 
   const doFetch = (): Promise<CartInfo | undefined> => {

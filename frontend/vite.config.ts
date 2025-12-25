@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => {
       port: 3005,
       host: '0.0.0.0', // Слушаем на всех интерфейсах для доступа по IP
       strictPort: true,
+      https: {}, // Включаем HTTPS через mkcert (пустой объект = автоматическая генерация сертификатов)
+      cors: {
+        origin: ['https://yurchenkok.github.io', 'http://localhost:3005', 'http://192.168.1.240:3005', 'https://192.168.1.240:3005'],
+        credentials: true,
+      },
       // ВАЖНО: Прокси работает ТОЛЬКО в режиме разработки (npm run dev)
       // В production (GH Pages) нужно указать VITE_API_BASE_URL в .env.production
       proxy: {
@@ -23,6 +28,7 @@ export default defineConfig(({ mode }) => {
           target: `http://${backendHost}:${backendPort}`,
           changeOrigin: true,
           secure: false,
+          ws: true,
         },
         "/media": {
           target: `http://${backendHost}:${backendPort}`,
