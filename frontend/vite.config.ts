@@ -27,13 +27,13 @@ export default defineConfig(({ mode }) => {
       },
       proxy: {
         "/api": {
-          target: `http://${backendHost}:${backendPort}`,
+          target: "http://127.0.0.1:8005",
           changeOrigin: true,
           secure: false,
           ws: true,
         },
         "/images": {
-          target: `http://${backendHost}:${backendPort}`,
+          target: "http://127.0.0.1:8005",
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path,
