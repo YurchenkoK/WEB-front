@@ -21,8 +21,6 @@ export default defineConfig(({ mode }) => {
         origin: ['https://yurchenkok.github.io', 'http://localhost:3005', 'http://192.168.1.240:3005', 'https://192.168.1.240:3005'],
         credentials: true,
       },
-      // ВАЖНО: Прокси работает ТОЛЬКО в режиме разработки (npm run dev)
-      // В production (GH Pages) нужно указать VITE_API_BASE_URL в .env.production
       proxy: {
         "/api": {
           target: `http://${backendHost}:${backendPort}`,

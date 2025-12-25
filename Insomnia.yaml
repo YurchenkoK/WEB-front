@@ -11,12 +11,12 @@ resources:
   - _id: fld_drugs
     parentId: wrk_vasoactive_drugs
     _type: request_group
-    name: Домен услуги (Препараты)
+    name: Домен препараты
     
   - _id: fld_estimation_requests
     parentId: wrk_vasoactive_drugs
     _type: request_group
-    name: Домен заявки
+    name: Домен заявки на расчёт
     
   - _id: fld_drug_in_estimation
     parentId: wrk_vasoactive_drugs
@@ -31,12 +31,12 @@ resources:
   - _id: fld_async
     parentId: wrk_vasoactive_drugs
     _type: request_group
-    name: Асинхронные операции
+    name: Асинхронный сервис
     
   - _id: req_drug_add_image
     parentId: fld_drugs
     _type: request
-    name: POST добавление изображения
+    name: Добавить изображение препарата
     method: POST
     url: http://localhost:8005/api/drugs/1/add-image/
     body:
@@ -45,21 +45,21 @@ resources:
   - _id: req_drug_add_to_estimation_request
     parentId: fld_drugs
     _type: request
-    name: POST добавления в заявку-черновик
+    name: Добавить препарат в черновую заявку на расчёт скорости инфузии
     method: POST
     url: http://localhost:8005/api/drugs/1/add-to-estimation-request/
     
   - _id: req_drug_delete
     parentId: fld_drugs
     _type: request
-    name: DELETE удаление
+    name: Удалить препарат
     method: DELETE
     url: http://localhost:8005/api/drugs/1/
         
   - _id: req_drug_update
     parentId: fld_drugs
     _type: request
-    name: PUT изменение
+    name: Изменение препарата
     method: PUT
     url: http://localhost:8005/api/drugs/1/
     headers:
@@ -76,7 +76,7 @@ resources:
   - _id: req_drug_create
     parentId: fld_drugs
     _type: request
-    name: POST добавление (без изображения)
+    name: Добавить новый препарат
     method: POST
     url: http://localhost:8005/api/drugs/
     headers:
@@ -96,28 +96,28 @@ resources:
   - _id: req_drug_detail
     parentId: fld_drugs
     _type: request
-    name: GET одна запись
+    name: Одна заявка на расчёт скорости инфузии препаратов
     method: GET
     url: http://localhost:8005/api/drugs/1/
     
   - _id: req_drugs_list
     parentId: fld_drugs
     _type: request
-    name: GET список с фильтрацией
+    name: Список заявок на расчёт скорости инфузии препаратов
     method: GET
     url: http://localhost:8005/api/drugs/?name=Нитроглицерин
     
   - _id: req_estimation_request_delete
     parentId: fld_estimation_requests
     _type: request
-    name: DELETE удаление
+    name: Удалить заявку на расчёт скорости инфузии
     method: DELETE
     url: http://localhost:8005/api/estimation_requests/1/
     
   - _id: req_estimation_request_complete_or_reject
     parentId: fld_estimation_requests
     _type: request
-    name: PUT завершить/отклонить модератором
+    name: Завершить/отклонить заявку на расчёт скорости инфузии препаратов
     method: PUT
     url: http://localhost:8005/api/estimation_requests/1/complete/
     headers:
@@ -133,14 +133,14 @@ resources:
   - _id: req_estimation_request_form
     parentId: fld_estimation_requests
     _type: request
-    name: PUT сформировать создателем
+    name: Сформировать заявку на расчёт скорости инфузии препаратов
     method: PUT
     url: http://localhost:8005/api/estimation_requests/1/form/
     
   - _id: req_estimation_request_update
     parentId: fld_estimation_requests
     _type: request
-    name: PUT изменения полей заявки по теме
+    name: Изменение полей заявки на расчёт скорости инфузии препаратов
     method: PUT
     url: http://localhost:8005/api/estimation_requests/1/
     headers:
@@ -158,28 +158,28 @@ resources:
   - _id: req_estimation_request_detail
     parentId: fld_estimation_requests
     _type: request
-    name: GET одна запись
+    name: Одна заявка на расчёт скорости инфузии препаратов
     method: GET
     url: http://localhost:8005/api/estimation_requests/1/
     
   - _id: req_estimation_requests_list
     parentId: fld_estimation_requests
     _type: request
-    name: GET список с фильтрацией
+    name: Список заявок на расчёт скорости инфузии препаратов
     method: GET
     url: http://localhost:8005/api/estimation_requests/?status=FORMED&formation_date_from=2025-01-01&formation_date_to=2025-12-31
     
   - _id: req_cart_icon
     parentId: fld_estimation_requests
     _type: request
-    name: GET иконки корзины
+    name: Иконка черновой заявки на расчёт скорости инфузии препаратов
     method: GET
     url: http://localhost:8005/api/estimation_requests/cart/
     
   - _id: req_drug_in_estimation_update
     parentId: fld_drug_in_estimation
     _type: request
-    name: PUT изменение объёма ампулы в препарате заявки
+    name: Изменение объёма ампулы в препаратах
     method: PUT
     url: http://localhost:8005/api/estimation_requests/1/drugs/1/
     headers:
@@ -196,14 +196,14 @@ resources:
   - _id: req_drug_in_estimation_delete
     parentId: fld_drug_in_estimation
     _type: request
-    name: DELETE удаление из заявки
+    name: Удалить препарат из заявки на расчёт скорости инфузии препаратов 
     method: DELETE
     url: http://localhost:8005/api/estimation_requests/1/drugs/1/
         
   - _id: req_user_register
     parentId: fld_laboratory_users
     _type: request
-    name: POST регистрация
+    name: Регистрация нового пользователя
     method: POST
     url: http://localhost:8005/api/laboratory_users/register/
     headers:
@@ -223,7 +223,7 @@ resources:
   - _id: req_user_login
     parentId: fld_laboratory_users
     _type: request
-    name: POST аутентификация
+    name: Аутентификация пользователя
     method: POST
     url: http://localhost:8005/api/laboratory_users/login/
     headers:
@@ -240,14 +240,14 @@ resources:
   - _id: req_user_profile_get
     parentId: fld_laboratory_users
     _type: request
-    name: GET полей пользователя
+    name: Получить сведения о пользователе
     method: GET
     url: http://localhost:8005/api/laboratory_users/profile/1/
     
   - _id: req_user_profile_put
     parentId: fld_laboratory_users
     _type: request
-    name: PUT пользователя
+    name: Изменение сведений о пользователе
     method: PUT
     url: http://localhost:8005/api/laboratory_users/profile/1/
     headers:
@@ -265,14 +265,14 @@ resources:
   - _id: req_user_logout
     parentId: fld_laboratory_users
     _type: request
-    name: POST деавторизация
+    name: Деавторизация пользователя
     method: POST
     url: http://localhost:8005/api/laboratory_users/logout/
     
   - _id: req_estimation_request_calculate
     parentId: fld_async
     _type: request
-    name: POST запуск асинхронного расчета (Go-сервис)
+    name: Расчёт скорости инфузии препаратов ассинхронным сервисом
     method: POST
     url: http://localhost:8081/estimation_request_calculate/68
     headers:
@@ -295,9 +295,9 @@ resources:
         }
   
   - _id: req_async_update_results
-    parentId: fld_async
+    parentId: fld_estimation_requests
     _type: request
-    name: POST принять результат от асинхронного сервиса
+    name: Принять результат от асинхронного сервиса
     method: POST
     url: http://localhost:8005/api/estimation_requests/1/update_results/
     headers:

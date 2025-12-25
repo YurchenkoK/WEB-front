@@ -97,7 +97,7 @@ class EstimationRequestSerializer(serializers.ModelSerializer):
 
 class EstimationRequestListSerializer(serializers.ModelSerializer):
     """Serializer for estimation request list view — только поля заявки + счетчик посчитанных элементов."""
-    completed_drug_estimation = serializers.SerializerMethodField()
+    drugs_in_estimation = serializers.SerializerMethodField()
     
     class Meta:
         model = EstimationRequest
@@ -112,12 +112,14 @@ class EstimationRequestListSerializer(serializers.ModelSerializer):
             'ampoules_count',
             'solvent_volume',
             'patient_weight',
-            'completed_drug_estimation'
+            'drugs_in_estimation'
         ]
         read_only_fields = ['id', 'doctor', 'laboratory_worker', 'status', 'creation_datetime', 'formation_datetime', 'completion_datetime']
     
-    def get_completed_drug_estimation(self, obj):
-        """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed != null и != 0)"""
+    def get_drugs_in_estimation(self, obj):
+        """Возвращает количество DrugInEstimation с заполненной скоростью введения (infusion_speed != null и != 0).
+        Это поле в списочном сериализаторе содержит число завершённых расчётов для заявки.
+        """
         from decimal import Decimal
         return obj.items.filter(infusion_speed__isnull=False).exclude(infusion_speed=Decimal('0')).count()
 
