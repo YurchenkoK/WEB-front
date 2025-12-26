@@ -137,7 +137,8 @@ class EstimationRequestListSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
+    # expose user id under 'laboratory_user_id' to match API contract
+    laboratory_user_id = serializers.IntegerField(source='id', read_only=True)
     username = serializers.CharField(read_only=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     first_name = serializers.CharField(required=False, allow_blank=True)

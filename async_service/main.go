@@ -136,11 +136,9 @@ func estimationRequestCalculateHandler(c *gin.Context) {
 
 	go performAsyncCalculation(id, req.Drugs)
 
+	// Return only a confirmation message to keep the API minimal
 	c.JSON(http.StatusAccepted, gin.H{
-		"status":                "accepted",
-		"message":               "Задача помещена в очередь на обработку",
-		"estimation_request_id": id,
-		"drugs_count":           len(req.Drugs),
+		"message": "Задача помещена в очередь на обработку",
 	})
 }
 

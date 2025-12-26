@@ -178,7 +178,7 @@ class UserRegistration(APIView):
         session_id = redis_user_client.create_session(username)
         
         response = Response({
-            "id": user_data['id'],
+            "laboratory_user_id": user_data['id'],
             "username": user_data['username'],
             "message": "Пользователь успешно зарегистрирован"
         }, status=status.HTTP_201_CREATED)
@@ -220,7 +220,11 @@ class UserProfile(APIView):
                           status=status.HTTP_404_NOT_FOUND)
         
         serializer = UserSerializer(user)
-        return Response(serializer.data)
+        data = dict(serializer.data)
+        # normalize id -> laboratory_user_id for compatibility
+        if 'id' in data:
+            data['laboratory_user_id'] = data.pop('id')
+        return Response(data)
     
     @swagger_auto_schema(
         request_body=UserSerializer,
@@ -243,8 +247,9 @@ class UserProfile(APIView):
         
         serializer = UserSerializer(user, data=request.data, partial=True)
         if serializer.is_valid():
-            updated_user = serializer.save()
-            return Response(UserSerializer(updated_user).data)
+            serializer.save()
+            # Return only a confirmation message after updating user profile
+            return Response({"message": "Сведения пользователя изменены"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -277,14 +282,9 @@ def user_login(request):
     if user is not None:
         session_id = redis_user_client.create_session(username)
         
+        # Return username and a success message in the response body; session cookie is still set
         response = Response({
-            "id": user['id'],
             "username": user['username'],
-            "first_name": user.get('first_name', ''),
-            "last_name": user.get('last_name', ''),
-            "email": user.get('email', ''),
-            "is_staff": user.get('is_staff', False),
-            "is_superuser": user.get('is_superuser', False),
             "message": "Успешная аутентификация"
         })
         
@@ -413,7 +413,9 @@ class EstimationRequestDetail(APIView):
             return Response({"error": "Нет доступа к этой заявке"}, 
                           status=status.HTTP_403_FORBIDDEN)
         
-        serializer = EstimationRequestSerializer(estimation_request)
+        # Return compact representation (no many-to-many expanded items) — same as list view
+        from drugs_estimation.serializers import EstimationRequestListSerializer
+        serializer = EstimationRequestListSerializer(estimation_request)
         return Response(serializer.data)
     
     @swagger_auto_schema(
@@ -437,7 +439,8 @@ class EstimationRequestDetail(APIView):
         serializer = EstimationRequestSerializer(estimation_request, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            # Return only a confirmation message after updating the estimation request
+            return Response({"message": "Поля заявки изменены"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk, format=None):
@@ -487,8 +490,8 @@ def form_estimation_request(request, pk):
     estimation_request.formation_datetime = timezone.now()
     estimation_request.save()
     
-    serializer = EstimationRequestSerializer(estimation_request)
-    return Response(serializer.data)
+    # Return only status as requested
+    return Response({"status": estimation_request.status})
 
 
 @swagger_auto_schema(
@@ -572,8 +575,8 @@ def complete_estimation_request(request, pk):
         estimation_request.status = EstimationRequest.EstimationRequestStatus.REJECTED
         estimation_request.save()
     
-    serializer = EstimationRequestSerializer(estimation_request)
-    return Response(serializer.data)
+    # Return only status as requested
+    return Response({"status": estimation_request.status})
 
 
 
@@ -646,10 +649,8 @@ def drug_in_estimation_actions(request, estimation_request_pk, drug_pk):
                                status=status.HTTP_400_BAD_REQUEST)
         
         drug_in_order.save()
-        
-        # Используем детальный сериализатор с информацией о препарате
-        serializer = DrugInEstimationDetailSerializer(drug_in_order)
-        return Response(serializer.data)
+        # Return only a confirmation message after updating the drug characteristics
+        return Response({"message": "Характеристики препарата изменены"})
 
 
 
@@ -686,7 +687,8 @@ class DrugList(APIView):
         serializer = DrugSerializer(data=request.data)
         if serializer.is_valid():
             drug = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            # Return drug_id and a confirmation message after creation
+            return Response({"drug_id": drug.id, "message": "Препарат добавлен"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -714,8 +716,9 @@ class DrugDetail(APIView):
         drug = get_object_or_404(Drug, pk=pk)
         serializer = DrugSerializer(drug, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
+            drug = serializer.save()
+            # Return only a confirmation message after update
+            return Response({"message": "Препарат обновлён"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk, format=None):
@@ -759,11 +762,8 @@ def add_drug_image(request, pk):
     drug.image_url = final_url
     drug.save()
 
-    return Response({
-        "drug_id": drug.id,
-        "name": drug.name,
-        "image_url": final_url
-    })
+    # Return only a confirmation message after image upload
+    return Response({"message": "Изображение добавлено"})
 
 
 @swagger_auto_schema(
@@ -786,8 +786,10 @@ def add_drug_to_estimation_request(request, pk):
     )
     drug_in_order, created = DrugInEstimation.objects.get_or_create(estimation_request=estimation_request, drug=drug)
     if not created:
-        return Response({"message": "Препарат уже есть в заявке"}, status=status.HTTP_200_OK)
-    return Response({"message": "Препарат добавлен в заявку", "estimation_request_id": estimation_request.id}, 
+        # return estimation_request_id first, then message
+        return Response({"estimation_request_id": estimation_request.id, "message": "Препарат уже есть в заявке"}, status=status.HTTP_200_OK)
+    # Return estimation_request_id first, then message
+    return Response({"estimation_request_id": estimation_request.id, "message": "Препарат добавлен в заявку"}, 
                    status=status.HTTP_201_CREATED)
 
 
@@ -1069,11 +1071,8 @@ def update_async_results(request, pk):
             except DrugInEstimation.DoesNotExist:
                 continue
     
-    return Response({
-        "status": "success",
-        "estimation_request_id": pk,
-        "updated_count": updated_count
-    })
+    # Return only status as requested
+    return Response({"status": "success"})
 
 
 @api_view(['GET'])
